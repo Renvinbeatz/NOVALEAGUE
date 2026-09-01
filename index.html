@@ -424,6 +424,13 @@
         <button class="btn-copy" style="background: rgba(231, 76, 60, 0.2); color: var(--neon-red);" onclick="adminLogout()">SAIR ADM</button>
       </div>
 
+      <div id="admin-db-warning" class="alert-card warning2 hidden">
+        <i class="fa-solid fa-database" style="font-size: 18px;"></i>
+        <div>
+          <strong>Banco de dados NÃO conectado!</strong> O site está salvando tudo só neste navegador (localStorage). Nenhum jogador em outro celular vai ver os cadastros, partidas, avisos ou cupons que você criar agora. Configure o Supabase (SUPABASE_URL / SUPABASE_ANON_KEY no código) para os dados ficarem visíveis pra todo mundo.
+        </div>
+      </div>
+
       <div class="stats-grid">
         <div class="stat-card accent-purple">
           <div class="stat-label">JOGADORES</div>
@@ -784,12 +791,27 @@
   </nav>
 
   <script>
-    const SUPABASE_URL = 'SUA_URL_SUPABASE_AQUI';
-    const SUPABASE_ANON_KEY = 'SUA_CHAVE_ANONIMA_AQUI';
+    // ⚠️ IMPORTANTE: troque os dois valores abaixo pelas credenciais do SEU projeto Supabase
+    // (Project Settings > API, no painel do Supabase). Enquanto estiverem com o texto
+    // placeholder, o site funciona só no localStorage de CADA navegador — ou seja,
+    // o que o ADM cadastra não aparece pros outros jogadores.
+    const SUPABASE_URL = 'https://iefsmifzahqxdoqdkvsx.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_UT3vk4ILNo8jIrC3PSUNkw_-I2JRhqZ';
 
-    const _supabase = (SUPABASE_URL !== 'SUA_URL_SUPABASE_AQUI') 
-      ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+    // Checagem robusta: considera configurado só se parecer mesmo uma URL/chave reais,
+    // não apenas "diferente do texto placeholder" (evita falso-positivo por erro de digitação).
+    const SUPABASE_CONFIGURED = Boolean(
+      SUPABASE_URL && SUPABASE_URL.startsWith('https://') && SUPABASE_URL.includes('.supabase.co') &&
+      SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length > 20
+    );
+
+    const _supabase = SUPABASE_CONFIGURED
+      ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
       : null;
+
+    if (!SUPABASE_CONFIGURED) {
+      console.warn('[NØVA LEAGUE] Supabase NÃO configurado — usando localStorage local. Os dados cadastrados pelo ADM não serão vistos por outros jogadores até que SUPABASE_URL e SUPABASE_ANON_KEY sejam preenchidos com as credenciais reais do projeto.');
+    }
 
     const state = {
       isAdminAuthenticated: false,
@@ -998,6 +1020,11 @@
         return;
       }
       switchTab('view-admin');
+
+      const dbWarning = document.getElementById('admin-db-warning');
+      if (dbWarning) {
+        dbWarning.classList.toggle('hidden', SUPABASE_CONFIGURED);
+      }
     }
 
     function switchTab(tabId) {
@@ -1047,7 +1074,6 @@
       setTimeout(() => toast.remove(), 3000);
     }
 
-    // CADASTRO INDIVIDUAL DE JOGADOR
     async function handleAddPlayer() {
       const nick = document.getElementById('new-player-nick').value.trim();
       const gameId = document.getElementById('new-player-id').value.trim();
@@ -1084,7 +1110,6 @@
       renderAll();
     }
 
-    // IMPORTAÇÃO RÁPIDA DE IDs (ID, NICK)
     async function handleBulkPlayersImport() {
       const rawText = document.getElementById('bulk-players-input').value.trim();
 
@@ -1109,7 +1134,6 @@
 
           if (!gameId || !nick) continue;
 
-          // Verifica se o ID já existe no estado ou no lote atual
           const existsInState = state.players.some(p => String(p.gameId) === String(gameId));
           const existsInBatch = playersToInsert.some(p => String(p.gameId) === String(gameId));
 
@@ -1309,12 +1333,15 @@
           };
 
           if (_supabase) {
-            await _supabase.from('partidas').insert([newMatchRecord]);
+            const { data } = await _supabase.from('partidas').insert([newMatchRecord]).select();
+            if (data) newMatchRecord.id = data[0].id;
             await _supabase.from('jogadores').update({
               kills: newKills,
               matchesCount: newMatches,
               earnings: newEarnings
             }).eq('id', player.id);
+          } else {
+            newMatchRecord.id = Date.now() + Math.random();
           }
 
           player.kills = newKills;
@@ -1405,6 +1432,7 @@
           const { data } = await _supabase.from('partidas').insert(matchesToInsert).select();
           if (data) state.matches.unshift(...data);
         } else {
+          matchesToInsert.forEach(m => m.id = Date.now() + Math.random());
           state.matches.unshift(...matchesToInsert);
         }
 
@@ -1416,6 +1444,39 @@
       } else {
         showToast('Nenhum ID correspondente encontrado.', 'danger');
       }
+    }
+
+    // REMOVER PARTIDA PELO ADM
+    async function deleteMatchGroup(groupKey) {
+      if (!confirm('⚠️ Deseja realmente excluir esta partida? Os pontos e prêmios acumulados pelos jogadores nesta partida serão revertidos.')) return;
+
+      const matchesToDelete = state.matches.filter(m => (m.number + '_' + (m.date || 'sem_data')) === groupKey);
+
+      for (const m of matchesToDelete) {
+        const player = state.players.find(p => String(p.id) === String(m.playerId) || String(p.gameId) === String(m.playerGameId));
+        if (player) {
+          player.kills = Math.max(0, player.kills - (m.kills || 0));
+          player.matchesCount = Math.max(0, player.matchesCount - 1);
+          player.earnings = Math.max(0, parseFloat((player.earnings - (parseFloat(m.total) || 0)).toFixed(2)));
+
+          if (_supabase) {
+            await _supabase.from('jogadores').update({
+              kills: player.kills,
+              matchesCount: player.matchesCount,
+              earnings: player.earnings
+            }).eq('id', player.id);
+          }
+        }
+
+        if (_supabase && m.id) {
+          await _supabase.from('partidas').delete().eq('id', m.id);
+        }
+      }
+
+      state.matches = state.matches.filter(m => (m.number + '_' + (m.date || 'sem_data')) !== groupKey);
+      saveToLocalStorage();
+      showToast('Partida removida com sucesso!', 'danger');
+      renderAll();
     }
 
     async function handleAddCoupon() {
@@ -1435,7 +1496,23 @@
 
       saveToLocalStorage();
       closeModal('modal-add-coupon');
+      document.getElementById('coupon-code').value = '';
+      document.getElementById('coupon-discount').value = '';
+      document.getElementById('coupon-valid').value = '';
       showToast('✓ Cupom adicionado!');
+      renderAll();
+    }
+
+    // REMOVER CUPOM PELO ADM
+    async function deleteCoupon(couponId) {
+      if (!confirm('Deseja realmente remover este cupom?')) return;
+
+      if (_supabase) {
+        await _supabase.from('cupons').delete().eq('id', couponId);
+      }
+      state.coupons = state.coupons.filter(c => String(c.id) !== String(couponId));
+      saveToLocalStorage();
+      showToast('Cupom removido com sucesso!', 'danger');
       renderAll();
     }
 
@@ -1544,7 +1621,7 @@
       return Object.values(groups);
     }
 
-    function renderMatchGroupHTML(group, groupIndex) {
+    function renderMatchGroupHTML(group, groupIndex, isAdmin = false) {
       const sortedPlayers = [...group.players].sort((a, b) => a.pos - b.pos);
 
       let myIndex = -1;
@@ -1587,6 +1664,11 @@
       }).join('');
 
       const accordionId = 'match-details-' + groupIndex;
+      const deleteBtn = isAdmin ? `
+        <button class="btn-copy" style="background: rgba(231,76,60,0.2); color: var(--neon-red); padding: 4px 8px; font-size: 10px;" onclick="event.stopPropagation(); deleteMatchGroup('${escapeHTML(group.key)}')">
+          <i class="fa-solid fa-trash"></i> EXCLUIR
+        </button>
+      ` : '';
 
       return `
         <div class="match-group-card">
@@ -1597,7 +1679,10 @@
                 <i class="fa-regular fa-clock"></i> ${escapeHTML(group.date)} | <i class="fa-solid fa-users"></i> ${group.players.length} Jogadores
               </p>
             </div>
-            <i class="fa-solid fa-chevron-down" id="icon-${accordionId}" style="color: var(--neon-gold);"></i>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              ${deleteBtn}
+              <i class="fa-solid fa-chevron-down" id="icon-${accordionId}" style="color: var(--neon-gold);"></i>
+            </div>
           </button>
           
           <div id="${accordionId}" class="match-details-box hidden">
@@ -1665,7 +1750,7 @@
         const homeMatchesList = document.getElementById('home-matches-list');
 
         if (myGroups.length === 0) {
-          homeMatchesList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-gamepad"></i><p>Nenum resultado registrado para seu ID.</p></div>`;
+          homeMatchesList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-gamepad"></i><p>Nenhum resultado registrado para seu ID.</p></div>`;
         } else {
           homeMatchesList.innerHTML = myGroups.map((g, idx) => renderMatchGroupHTML(g, 'home-' + idx)).join('');
         }
@@ -1695,7 +1780,7 @@
         `).join('');
       }
 
-      // CUPONS
+      // CUPONS PARA JOGADORES
       const couponsContainer = document.getElementById('coupons-list-container');
       if (state.coupons.length === 0) {
         couponsContainer.innerHTML = `<div class="empty-state"><i class="fa-solid fa-ticket"></i><p>Nenhum cupom ativo no momento.</p></div>`;
@@ -1809,7 +1894,7 @@
         navBadge.classList.add('hidden');
       }
 
-      // PAINEL ADM
+      // PAINEL ADM - METRICAS
       const totalEarnings = state.players.reduce((acc, p) => acc + parseFloat(p.earnings || 0), 0);
       document.getElementById('admin-count-players').innerText = state.players.length;
       document.getElementById('admin-count-matches').innerText = getGroupedMatches().length;
@@ -1848,6 +1933,27 @@
         }).join('');
       }
 
+      // CUPONS NO ADM
+      const adminCouponsContainer = document.getElementById('admin-coupons-table-body');
+      if (adminCouponsContainer) {
+        if (state.coupons.length === 0) {
+          adminCouponsContainer.innerHTML = `<div class="empty-state"><i class="fa-solid fa-ticket"></i><p>Nenhum cupom cadastrado.</p></div>`;
+        } else {
+          adminCouponsContainer.innerHTML = state.coupons.map(c => `
+            <div class="coupon-card">
+              <div>
+                <div class="coupon-code">${escapeHTML(c.code)}</div>
+                <div style="font-size: 12px; font-weight: 700; color: var(--neon-green);">${escapeHTML(c.discount)}</div>
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Validade: ${escapeHTML(c.valid)}</div>
+              </div>
+              <button class="btn-copy" style="background: rgba(231,76,60,0.2); color: var(--neon-red);" onclick="deleteCoupon('${c.id}')">
+                <i class="fa-solid fa-trash"></i> EXCLUIR
+              </button>
+            </div>
+          `).join('');
+        }
+      }
+
       // SELECT DE DESTINATÁRIOS
       const recipientSelect = document.getElementById('msg-recipient');
       if (recipientSelect) {
@@ -1881,13 +1987,13 @@
         }
       }
 
-      // PARTIDAS ADM
+      // PARTIDAS ADM (COM BOTÃO DE EXCLUIR)
       const adminMatchesList = document.getElementById('admin-matches-list');
       const allGroups = getGroupedMatches();
       if (state.matches.length === 0) {
         adminMatchesList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-gamepad"></i><p>Nenhuma partida criada.</p></div>`;
       } else {
-        adminMatchesList.innerHTML = allGroups.map((g, idx) => renderMatchGroupHTML(g, 'admin-' + idx)).join('');
+        adminMatchesList.innerHTML = allGroups.map((g, idx) => renderMatchGroupHTML(g, 'admin-' + idx, true)).join('');
       }
     }
 
