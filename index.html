@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>NØVA LEAGUE — Esportes Eletrônicos</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0b0e14;
+      --bg-card: #141a24;
+      --bg-card-hover: #1c2432;
+      --border-color: rgba(229, 184, 57, 0.22);
+      --border-glow: rgba(229, 184, 57, 0.45);
+      --neon-cyan: #e5b839;
+      --neon-purple: #c7962c;
+      --neon-green: #2ecc71;
+      --neon-yellow: #f1c40f;
+      --neon-orange: #e67e22;
+      --neon-gold: #f8d775;
+      --neon-red: #e74c3c;
+      --text-main: #ffffff;
+      --text-muted: #8d99ae;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --font-heading: 'Orbitron', sans-serif;
+      --font-sub: 'Rajdhani', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      padding-bottom: 80px;
+    }
+
+    .bg-glow-1, .bg-glow-2 { position: fixed; width: 300px; height: 300px; z-index: -1; pointer-events: none; }
+    .bg-glow-1 { top: -100px; left: -80px; background: radial-gradient(circle, rgba(229, 184, 57, 0.12) 0%, rgba(0,0,0,0) 70%); }
+    .bg-glow-2 { bottom: -100px; right: -80px; background: radial-gradient(circle, rgba(199, 150, 44, 0.1) 0%, rgba(0,0,0,0) 70%); }
+
+    header {
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(20, 26, 36, 0.92);
+      border-bottom: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+    .brand-logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--neon-gold), var(--neon-purple));
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-heading); font-weight: 900; color: #0b0e14; font-size: 18px;
+      box-shadow: 0 0 12px rgba(229, 184, 57, 0.3);
+    }
+    .brand-title {
+      font-family: var(--font-heading); font-size: 16px; font-weight: 900; letter-spacing: 1.2px;
+      background: linear-gradient(90deg, #ffffff, var(--neon-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    main.container { max-width: 900px; margin: 0 auto; padding: 16px; width: 100%; flex: 1; }
+
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border-color);
+      border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px; position: relative;
+      overflow: hidden; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .stats-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); 
+      gap: 10px; 
+      margin-bottom: 20px; 
+    }
+    
+    .stat-card {
+      background: linear-gradient(145deg, rgba(20, 26, 36, 0.95), rgba(28, 36, 50, 0.7));
+      border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px;
+      display: flex; flex-direction: column; justify-content: space-between; position: relative;
+    }
+    .stat-card::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+      background: var(--neon-cyan); border-radius: 4px 0 0 4px;
+    }
+    .stat-card.accent-purple::before { background: var(--neon-purple); }
+    .stat-card.accent-green::before { background: var(--neon-green); }
+    .stat-card.accent-gold::before { background: var(--neon-gold); }
+
+    .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); font-weight: 600; }
+    .stat-val { font-family: var(--font-sub); font-size: 22px; font-weight: 700; margin-top: 4px; color: #fff; }
+
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 12px 0; }
+    .section-title { font-family: var(--font-heading); font-size: 14px; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; color: var(--neon-gold); }
+
+    .match-group-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(229, 184, 57, 0.2);
+      border-radius: var(--radius-md);
+      margin-bottom: 12px;
+      transition: border-color 0.2s ease;
+    }
+
+    .match-header-btn {
+      width: 100%;
+      padding: 14px;
+      background: rgba(0,0,0,0.2);
+      border: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #fff;
+      cursor: pointer;
+      text-align: left;
+      border-radius: var(--radius-md);
+    }
+    .match-header-btn:hover { background: rgba(229, 184, 57, 0.05); }
+
+    .match-details-box {
+      padding: 12px;
+      border-top: 1px solid rgba(229, 184, 57, 0.15);
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .player-row-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 13px;
+    }
+
+    .player-row-item.highlight-me {
+      background: rgba(229, 184, 57, 0.15);
+      border: 1px solid var(--neon-gold);
+      box-shadow: 0 0 10px rgba(229, 184, 57, 0.2);
+    }
+
+    .player-row-title {
+      font-family: var(--font-sub);
+      font-weight: 700;
+      font-size: 13px;
+      word-break: break-all;
+    }
+
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .badge-paid { background: rgba(46, 204, 113, 0.15); color: var(--neon-green); border: 1px solid var(--neon-green); }
+    .badge-pending { background: rgba(229, 184, 57, 0.15); color: var(--neon-gold); border: 1px solid var(--neon-gold); }
+    .badge-normal { background: rgba(46, 204, 113, 0.15); color: var(--neon-green); border: 1px solid var(--neon-green); }
+    .badge-warning1 { background: rgba(241, 196, 15, 0.15); color: var(--neon-yellow); border: 1px solid var(--neon-yellow); }
+    .badge-warning2 { background: rgba(230, 126, 34, 0.15); color: var(--neon-orange); border: 1px solid var(--neon-orange); }
+
+    .alert-card {
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 12px;
+      font-size: 12px;
+      line-height: 1.4;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .alert-card.warning1 {
+      background: rgba(241, 196, 15, 0.15);
+      border: 1px solid var(--neon-yellow);
+      color: var(--neon-yellow);
+    }
+    .alert-card.warning2 {
+      background: rgba(230, 126, 34, 0.15);
+      border: 1px solid var(--neon-orange);
+      color: var(--neon-orange);
+    }
+
+    .empty-state {
+      text-align: center; padding: 24px 16px; color: var(--text-muted);
+      border: 1px dashed var(--border-color); border-radius: var(--radius-md); background: rgba(20, 26, 36, 0.4);
+    }
+    .empty-state i { font-size: 28px; margin-bottom: 8px; color: var(--neon-cyan); display: block; }
+
+    .coupon-card {
+      background: linear-gradient(135deg, rgba(20, 26, 36, 0.95), rgba(30, 40, 56, 0.95));
+      border: 1px dashed var(--neon-cyan); border-radius: var(--radius-md); padding: 14px; margin-bottom: 12px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .coupon-code { font-family: var(--font-heading); font-size: 16px; color: var(--neon-gold); }
+
+    .btn-copy, .btn-primary, .btn-secondary {
+      background: linear-gradient(135deg, var(--neon-gold), var(--neon-cyan)); color: #0b0e14; border: none; padding: 8px 12px;
+      border-radius: var(--radius-sm); font-weight: 700; font-size: 12px; cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-primary { width: 100%; padding: 12px; font-family: var(--font-sub); font-size: 15px; }
+    .btn-secondary { background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border-color); }
+
+    .pagination-controls {
+      display: flex; justify-content: space-between; align-items: center; margin-top: 14px; gap: 10px;
+    }
+
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 60px;
+      background: rgba(11, 14, 20, 0.98); border-top: 1px solid var(--border-color);
+      display: flex; justify-content: space-around; align-items: center; backdrop-filter: blur(15px); z-index: 1000;
+    }
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--text-muted);
+      text-decoration: none; font-size: 9px; font-weight: 600; cursor: pointer; flex: 1; padding: 6px 0;
+      position: relative;
+    }
+    .nav-item i { font-size: 16px; }
+    .nav-item.active { color: var(--neon-gold); }
+
+    .nav-badge {
+      position: absolute; top: 4px; right: 28%; background: var(--neon-red); color: #fff;
+      font-size: 9px; font-weight: 800; width: 14px; height: 14px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px var(--neon-red);
+    }
+
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 2000;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s ease; padding: 12px;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    .modal-content {
+      background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.9);
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(229,184,57,0.15); padding-bottom: 8px; }
+
+    .auth-tabs { display: flex; gap: 8px; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; }
+    .auth-tab-btn { flex: 1; padding: 8px; background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-muted); font-weight: 700; cursor: pointer; font-size: 11px; }
+    .auth-tab-btn.active { background: var(--neon-cyan); color: #0b0e14; border-color: var(--neon-cyan); }
+
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 600; }
+    
+    .form-control { 
+      width: 100%; 
+      background: rgba(0,0,0,0.4); 
+      border: 1px solid var(--border-color); 
+      padding: 10px; 
+      border-radius: var(--radius-sm); 
+      color: #fff; 
+      outline: none; 
+      font-size: 15px; 
+    }
+    .form-control:focus { border-color: var(--neon-gold); }
+
+    .player-entry-card {
+      background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+      padding: 10px; margin-bottom: 10px; position: relative;
+    }
+    .btn-remove-row {
+      position: absolute; top: 6px; right: 6px; background: rgba(231,76,60,0.2); color: var(--neon-red);
+      border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 11px;
+    }
+
+    .admin-menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; }
+    .admin-tile {
+      background: rgba(229, 184, 57, 0.08); border: 1px solid var(--border-color); padding: 8px 4px;
+      border-radius: var(--radius-sm); text-align: center; cursor: pointer;
+    }
+    .admin-tile.active { background: rgba(229, 184, 57, 0.22); border-color: var(--neon-gold); }
+    .admin-tile i { font-size: 15px; color: var(--neon-gold); display: block; margin-bottom: 2px; }
+    .admin-tile span { font-size: 9px; font-weight: 700; }
+
+    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .responsive-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+    .responsive-table th, .responsive-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(229,184,57,0.1); }
+
+    .btn-icon {
+      width: 32px; height: 32px; border-radius: 8px; background: var(--bg-card);
+      border: 1px solid var(--border-color); color: var(--text-main); display: flex;
+      align-items: center; justify-content: center; cursor: pointer;
+    }
+
+    .toast-container { position: fixed; top: 16px; right: 16px; left: 16px; z-index: 3000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast { background: rgba(20, 26, 36, 0.98); border: 1px solid var(--neon-gold); padding: 10px 14px; border-radius: var(--radius-md); color: #fff; font-size: 12px; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+
+    .filter-box { display: flex; gap: 10px; margin-bottom: 12px; }
+
+    .faq-item {
+      background: rgba(0,0,0,0.3); border: 1px solid rgba(229,184,57,0.15);
+      border-radius: var(--radius-sm); padding: 10px; margin-bottom: 8px;
+    }
+    .faq-question { font-weight: 700; font-size: 12px; color: var(--neon-gold); margin-bottom: 4px; }
+    .faq-answer { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+    .status-select {
+      background: #0b0e14; border: 1px solid var(--border-color); color: #fff;
+      padding: 4px 6px; border-radius: 6px; font-size: 11px; outline: none;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 480px) {
+      main.container { padding: 10px; }
+      .card { padding: 12px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .coupon-card { flex-direction: column; align-items: flex-start; }
+      .btn-copy { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-glow-1"></div>
+  <div class="bg-glow-2"></div>
+
+  <header>
+    <div class="brand" onclick="handleSecretAdminTrigger()">
+      <div class="brand-logo">N</div>
+      <div class="brand-title">NØVA LEAGUE</div>
+    </div>
+  </header>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <main class="container">
+
+    <section id="view-home">
+      <div id="player-logged-out-view" class="card" style="text-align: center; padding: 24px 16px;">
+        <i class="fa-solid fa-user-lock" style="font-size: 36px; color: var(--neon-gold); margin-bottom: 10px;"></i>
+        <h2 style="font-family: var(--font-heading); font-size: 16px; margin-bottom: 6px;">ÁREA RESTRITA AO JOGADOR</h2>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Entre com seu ID e Senha ou ative seu ID pré-cadastrado.</p>
+        <button class="btn-primary" onclick="openModal('modal-player-auth')"><i class="fa-solid fa-right-to-bracket"></i> ENTRAR / CRIAR SENHA</button>
+      </div>
+
+      <div id="player-logged-in-view" class="hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <h2 style="font-family: var(--font-sub); font-size: 20px;">Olá, <span id="dash-player-nick" style="color: var(--neon-gold);">--</span> 👋</h2>
+            <p style="font-size: 11px; color: var(--text-muted);">ID FF: <span id="dash-player-id">--</span></p>
+          </div>
+          <button class="btn-copy" style="background: rgba(231,76,60,0.2); color: var(--neon-red);" onclick="playerLogout()">SAIR</button>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card accent-gold">
+            <div class="stat-label"><i class="fa-solid fa-trophy"></i> POSIÇÃO</div>
+            <div class="stat-val" id="dash-rank">--</div>
+          </div>
+          <div class="stat-card accent-purple">
+            <div class="stat-label"><i class="fa-solid fa-skull"></i> KILLS</div>
+            <div class="stat-val" id="dash-kills">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label"><i class="fa-solid fa-gamepad"></i> PARTIDAS</div>
+            <div class="stat-val" id="dash-matches">0</div>
+          </div>
+          <div class="stat-card accent-green">
+            <div class="stat-label"><i class="fa-solid fa-coins"></i> ACUMULADO</div>
+            <div class="stat-val" id="dash-earnings">R$ 0,00</div>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <div class="section-title"><i class="fa-solid fa-clock-rotate-left"></i> SEUS RESULTADOS POR PARTIDA</div>
+        </div>
+        <div id="home-matches-list"></div>
+      </div>
+    </section>
+
+    <section id="view-ranking" class="hidden">
+      <div class="section-header">
+        <div class="section-title"><i class="fa-solid fa-trophy"></i> RANKING GERAL</div>
+      </div>
+      <div id="ranking-list-container"></div>
+    </section>
+
+    <section id="view-matches" class="hidden">
+      <div class="section-header">
+        <div class="section-title"><i class="fa-solid fa-gamepad"></i> CONSULTAR PARTIDAS</div>
+      </div>
+      <div class="filter-box">
+        <input type="number" id="filter-match-id" class="form-control" placeholder="Filtrar por ID do Jogador (Ex: 12345)">
+      </div>
+      <div id="full-matches-list"></div>
+      
+      <div class="pagination-controls" id="matches-pagination">
+        <button class="btn-secondary" id="btn-prev-page" onclick="changeMatchPage(-1)"><i class="fa-solid fa-chevron-left"></i> Anterior</button>
+        <span style="font-size: 12px; color: var(--text-muted);" id="page-indicator">Página 1</span>
+        <button class="btn-secondary" id="btn-next-page" onclick="changeMatchPage(1)">Próximo <i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </section>
+
+    <section id="view-coupons" class="hidden">
+      <div class="section-header">
+        <div class="section-title"><i class="fa-solid fa-ticket"></i> CUPONS ATIVOS</div>
+      </div>
+      <div id="coupons-list-container"></div>
+    </section>
+
+    <section id="view-profile" class="hidden">
+      <div id="profile-content"></div>
+    </section>
+
+    <section id="view-admin" class="hidden">
+      <div class="section-header">
+        <div class="section-title" style="color: var(--neon-gold);"><i class="fa-solid fa-sliders"></i> PAINEL ADM</div>
+        <button class="btn-copy" style="background: rgba(231, 76, 60, 0.2); color: var(--neon-red);" onclick="adminLogout()">SAIR ADM</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card accent-purple">
+          <div class="stat-label">JOGADORES</div>
+          <div class="stat-val" id="admin-count-players">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">PARTIDAS</div>
+          <div class="stat-val" id="admin-count-matches">0</div>
+        </div>
+        <div class="stat-card accent-green">
+          <div class="stat-label">PREMIAÇÕES</div>
+          <div class="stat-val" id="admin-total-payout">R$ 0,00</div>
+        </div>
+        <div class="stat-card accent-gold">
+          <div class="stat-label">CUPONS</div>
+          <div class="stat-val" id="admin-count-coupons">0</div>
+        </div>
+      </div>
+
+      <div class="admin-menu-grid">
+        <div class="admin-tile active" onclick="switchAdminSubtab('players', this)">
+          <i class="fa-solid fa-users"></i>
+          <span>Jogadores</span>
+        </div>
+        <div class="admin-tile" onclick="switchAdminSubtab('matches', this)">
+          <i class="fa-solid fa-gamepad"></i>
+          <span>Partidas</span>
+        </div>
+        <div class="admin-tile" onclick="switchAdminSubtab('coupons', this)">
+          <i class="fa-solid fa-ticket"></i>
+          <span>Cupons</span>
+        </div>
+        <div class="admin-tile" onclick="switchAdminSubtab('messages', this)">
+          <i class="fa-solid fa-comment-dots"></i>
+          <span>Mensagens</span>
+        </div>
+      </div>
+
+      <div id="admin-sub-players" class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap;">
+          <h4 style="font-family: var(--font-sub);">BANCO DE JOGADORES</h4>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn-copy" style="background: rgba(46, 204, 113, 0.2); color: var(--neon-green);" onclick="openModal('modal-bulk-players-import')"><i class="fa-solid fa-file-import"></i> IMPORTAR EM MASSA</button>
+            <button class="btn-copy" onclick="openModal('modal-add-player')">+ ADICIONAR ID</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="responsive-table">
+            <thead>
+              <tr>
+                <th>Nick / ID</th>
+                <th>Senha</th>
+                <th>Status da Conta</th>
+                <th>Acumulado</th>
+              </tr>
+            </thead>
+            <tbody id="admin-players-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="admin-sub-matches" class="card hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap;">
+          <h4 style="font-family: var(--font-sub);">PARTIDAS REGISTRADAS</h4>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-copy" style="background: rgba(46, 204, 113, 0.2); color: var(--neon-green);" onclick="openModal('modal-bulk-import')"><i class="fa-solid fa-file-import"></i> IMPORTAR</button>
+            <button class="btn-copy" onclick="openAddMatchModal()">+ NOVA PARTIDA</button>
+          </div>
+        </div>
+        <div id="admin-matches-list"></div>
+      </div>
+
+      <div id="admin-sub-coupons" class="card hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h4 style="font-family: var(--font-sub);">GERENCIAR CUPONS</h4>
+          <button class="btn-copy" onclick="openModal('modal-add-coupon')">+ NOVO CUPOM</button>
+        </div>
+        <div id="admin-coupons-table-body"></div>
+      </div>
+
+      <div id="admin-sub-messages" class="card hidden">
+        <h4 style="font-family: var(--font-sub); margin-bottom: 12px; color: var(--neon-gold);">ENVIAR MENSAGEM / AVISO</h4>
+        <form onsubmit="event.preventDefault(); handleSendMessage();">
+          <div class="form-group">
+            <label>DESTINATÁRIO</label>
+            <select id="msg-recipient" class="form-control" required></select>
+          </div>
+          <div class="form-group">
+            <label>MENSAGEM OU AVISO</label>
+            <textarea id="msg-text" class="form-control" rows="3" placeholder="Digite o aviso ou comunicado..." required></textarea>
+          </div>
+          <button type="submit" class="btn-primary"><i class="fa-solid fa-paper-plane"></i> ENVIAR COMUNICADO</button>
+        </form>
+
+        <div style="border-top: 1px dashed var(--border-color); margin-top: 16px; padding-top: 12px;">
+          <h4 style="font-family: var(--font-sub); margin-bottom: 10px;">COMUNICADOS ENVIADOS</h4>
+          <div id="admin-messages-history"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="modal-overlay" id="modal-support">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--neon-gold); font-size: 14px;"><i class="fa-solid fa-circle-question"></i> SUPORTE E FAQ</h3>
+        <button class="btn-icon" onclick="closeModal('modal-support')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div>
+        <div class="faq-item">
+          <div class="faq-question">1. Como funciona a contagem de pontos e kills?</div>
+          <div class="faq-answer">As pontuações e abates (kills) são registrados ao final de cada partida realizada pela organização e computados diretamente na sua conta.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question">2. Como funcionam os prêmios de TOP 1 e TOP 2?</div>
+          <div class="faq-answer">Além da premiação por cada abate, os jogadores que conquistarem o 1º ou 2º lugar na partida recebem um bônus adicional acumulado em saldo.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question">3. O que significam os Avisos na conta?</div>
+          <div class="faq-answer">Contas em aviso (amarelo ou laranja) violaram regras leves do campeonato. Infrações graves resultam em banimento imediato da plataforma.</div>
+        </div>
+      </div>
+
+      <div style="border-top: 1px dashed var(--border-color); padding-top: 12px; margin-top: 12px; text-align: center;">
+        <a href="https://wa.me/5500000000000?text=Olá,%20preciso%20de%20suporte%20na%20NØVA%20LEAGUE!" target="_blank" class="btn-primary" style="background: #25D366; color: #fff; text-decoration: none;">
+          <i class="fa-brands fa-whatsapp" style="font-size: 16px;"></i> Falar no WhatsApp
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-player-auth">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--neon-gold); font-size: 14px;"><i class="fa-solid fa-user-check"></i> ACESSO DO JOGADOR</h3>
+        <button class="btn-icon" onclick="closeModal('modal-player-auth')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" id="tab-btn-login" onclick="switchPlayerAuthTab('login')">ENTRAR</button>
+        <button class="auth-tab-btn" id="tab-btn-register" onclick="switchPlayerAuthTab('register')">CRIAR SENHA</button>
+      </div>
+
+      <form id="form-player-login" onsubmit="event.preventDefault(); handlePlayerLogin();">
+        <div class="form-group">
+          <label>ID DO FREE FIRE</label>
+          <input type="number" id="player-login-id" class="form-control" placeholder="Digite seu ID FF" required>
+        </div>
+        <div class="form-group">
+          <label>SENHA DE ACESSO</label>
+          <input type="password" id="player-login-pass" class="form-control" placeholder="Digite sua senha" required>
+        </div>
+        <button type="submit" class="btn-primary">ENTRAR</button>
+      </form>
+
+      <form id="form-player-register" class="hidden" onsubmit="event.preventDefault(); handlePlayerRegister();">
+        <div class="form-group">
+          <label>ID DO FREE FIRE</label>
+          <input type="number" id="player-reg-id" class="form-control" placeholder="Digite o ID cadastrado pelo ADM" required>
+        </div>
+        <div class="form-group">
+          <label>CRIE UMA NOVA SENHA</label>
+          <input type="password" id="player-reg-pass" class="form-control" placeholder="Crie uma senha de acesso" required minlength="4">
+        </div>
+        <button type="submit" class="btn-primary">VERIFICAR & SALVAR</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-admin-auth">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--neon-gold); font-size: 14px;"><i class="fa-solid fa-shield-halved"></i> AUTENTICAÇÃO ADM</h3>
+        <button class="btn-icon" onclick="closeModal('modal-admin-auth')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="event.preventDefault(); handleAdminAuth();">
+        <div class="form-group">
+          <label>USUÁRIO</label>
+          <input type="text" id="admin-user-input" class="form-control" placeholder="Login de administrador" required autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>SENHA</label>
+          <input type="password" id="admin-pass-input" class="form-control" placeholder="Senha de administrador" required>
+        </div>
+        <button type="submit" class="btn-primary">ENTRAR NO PAINEL</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-add-player">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--neon-gold); font-size: 14px;">CADASTRAR ID</h3>
+        <button class="btn-icon" onclick="closeModal('modal-add-player')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="event.preventDefault(); handleAddPlayer();">
+        <div class="form-group">
+          <label>NICKNAME DO JOGADOR</label>
+          <input type="text" id="new-player-nick" class="form-control" placeholder="@PlayerFF" required>
+        </div>
+        <div class="form-group">
+          <label>ID FREE FIRE</label>
+          <input type="number" id="new-player-id" class="form-control" placeholder="Ex: 12345678" required>
+        </div>
+        <button type="submit" class="btn-primary">SALVAR NO BANCO</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-bulk-players-import">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--neon-gold); font-size: 14px;"><i class="fa-solid fa-users-rectangle"></i> IMPORTAÇÃO RÁPIDA DE IDs</h3>
+        <button class="btn-icon" onclick="closeModal('modal-bulk-players-import')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="event.preventDefault(); handleBulkPlayersImport();">
+        <div class="form-group">
+          <label style="color: var(--neon-gold);">COLE A LISTA DE JOGADORES (FORMATO: ID, NICK)</label>
+          <textarea id="bulk-players-input" class="form-control" rows="8" placeholder="Exemplo de envio:&#10;12345678, @PlayerFF1&#10;87654321, @PlayerFF2&#10;11223344, @PlayerFF3" required style="font-family: monospace; font-size: 12px;"></textarea>
+          <small style="color: var(--text-muted); font-size: 10px; margin-top: 4px; display: block;">
+            * Separe o ID e o Nick por vírgula. IDs duplicados ou já cadastrados serão ignorados automaticamente.
+          </small>
+        </div>
+        <button type="submit" class="btn-primary">PROCESSAR E CADASTRAR JOGADORES</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-add-match">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--neon-gold); font-size: 14px;">NOVA PARTIDA</h3>
+        <button class="btn-icon" onclick="closeModal('modal-add-match')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="event.preventDefault(); handleAddMatch();">
+        <div class="form-group">
+          <label>NÚMERO DA DIÁRIA / PARTIDA</label>
+          <input type="text" id="match-number" class="form-control" placeholder="PARTIDA 1" required>
+        </div>
+
+        <div class="form-group">
+          <label style="color: var(--neon-gold);"><i class="fa-regular fa-calendar-days"></i> DATA E HORA DA PARTIDA</label>
+          <input type="datetime-local" id="match-datetime" class="form-control" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;" class="form-group">
+          <div>
+            <label style="color: var(--neon-gold);">PRÊMIO TOP 1 (R$)</label>
+            <input type="number" id="match-top1-bonus" class="form-control" value="10.00" step="0.50" required>
+          </div>
+          <div>
+            <label style="color: var(--neon-gold);">PRÊMIO TOP 2 (R$)</label>
+            <input type="number" id="match-top2-bonus" class="form-control" value="5.00" step="0.50" required>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--neon-gold);">JOGADORES DA PARTIDA</label>
+          <button type="button" class="btn-secondary" onclick="addPlayerRowToMatch()"><i class="fa-solid fa-plus"></i> Add Jogador</button>
+        </div>
+
+        <div id="match-players-container"></div>
+
+        <button type="submit" class="btn-primary" style="margin-top: 8px;">SALVAR PARTIDA</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-bulk-import">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--neon-gold); font-size: 14px;">IMPORTAR DADOS DA PARTIDA</h3>
+        <button class="btn-icon" onclick="closeModal('modal-bulk-import')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="event.preventDefault(); handleBulkImport();">
+        <div class="form-group">
+          <label>NÚMERO DA PARTIDA</label>
+          <input type="text" id="bulk-match-number" class="form-control" placeholder="PARTIDA 1" required>
+        </div>
+
+        <div class="form-group">
+          <label style="color: var(--neon-gold);"><i class="fa-regular fa-calendar-days"></i> DATA E HORA DA PARTIDA</label>
+          <input type="datetime-local" id="bulk-match-datetime" class="form-control" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+          <div class="form-group">
+            <label>VALOR / KILL</label>
+            <input type="number" id="bulk-kill-val" class="form-control" value="4.00" step="0.5" required>
+          </div>
+          <div class="form-group">
+            <label>TOP 1 (R$)</label>
+            <input type="number" id="bulk-top1-val" class="form-control" value="10.00" step="1" required>
+          </div>
+          <div class="form-group">
+            <label>TOP 2 (R$)</label>
+            <input type="number" id="bulk-top2-val" class="form-control" value="5.00" step="1" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>LISTA (FORMATO: ID, Kills, Posição)</label>
+          <textarea id="bulk-data-input" class="form-control" rows="6" placeholder="Exemplo:&#10;12345678, 5, 1&#10;87654321, 2, 2" required style="font-family: monospace; font-size: 12px;"></textarea>
+        </div>
+
+        <button type="submit" class="btn-primary">PROCESSAR IMPORTAÇÃO</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-add-coupon">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--neon-gold); font-size: 14px;">CRIAR CUPOM</h3>
+        <button class="btn-icon" onclick="closeModal('modal-add-coupon')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="event.preventDefault(); handleAddCoupon();">
+        <div class="form-group">
+          <label>CÓDIGO DO CUPOM</label>
+          <input type="text" id="coupon-code" class="form-control" placeholder="NOVA10" required>
+        </div>
+        <div class="form-group">
+          <label>DESCONTO</label>
+          <input type="text" id="coupon-discount" class="form-control" placeholder="10% OFF" required>
+        </div>
+        <div class="form-group">
+          <label>VALIDADE</label>
+          <input type="text" id="coupon-valid" class="form-control" placeholder="31/12/2026" required>
+        </div>
+        <button type="submit" class="btn-primary">CRIAR CUPOM</button>
+      </form>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item active" id="nav-home" onclick="switchTab('view-home')">
+      <i class="fa-solid fa-house"></i>
+      <span>INÍCIO</span>
+    </div>
+    <div class="nav-item" id="nav-ranking" onclick="switchTab('view-ranking')">
+      <i class="fa-solid fa-trophy"></i>
+      <span>RANKING</span>
+    </div>
+    <div class="nav-item" id="nav-matches" onclick="switchTab('view-matches')">
+      <i class="fa-solid fa-gamepad"></i>
+      <span>PARTIDAS</span>
+    </div>
+    <div class="nav-item" id="nav-coupons" onclick="switchTab('view-coupons')">
+      <i class="fa-solid fa-ticket"></i>
+      <span>CUPONS</span>
+    </div>
+    <div class="nav-item" id="nav-profile" onclick="switchTab('view-profile')">
+      <i class="fa-solid fa-user"></i>
+      <span>PERFIL</span>
+      <span id="nav-profile-badge" class="nav-badge hidden">!</span>
+    </div>
+  </nav>
+
+  <script>
+    const SUPABASE_URL = 'SUA_URL_SUPABASE_AQUI';
+    const SUPABASE_ANON_KEY = 'SUA_CHAVE_ANONIMA_AQUI';
+
+    const _supabase = (SUPABASE_URL !== 'SUA_URL_SUPABASE_AQUI') 
+      ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+      : null;
+
+    const state = {
+      isAdminAuthenticated: false,
+      currentPlayer: null,
+      players: [],
+      matches: [],
+      coupons: [],
+      messages: []
+    };
+
+    let adminClickCount = 0;
+    let adminClickTimer = null;
+    let filterDebounceTimer = null;
+    let currentMatchPage = 1;
+    const MATCHES_PER_PAGE = 10;
+
+    function escapeHTML(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function saveToLocalStorage() {
+      if (!_supabase) {
+        localStorage.setItem('nova_league_players', JSON.stringify(state.players));
+        localStorage.setItem('nova_league_matches', JSON.stringify(state.matches));
+        localStorage.setItem('nova_league_coupons', JSON.stringify(state.coupons));
+        localStorage.setItem('nova_league_messages', JSON.stringify(state.messages));
+      }
+    }
+
+    function loadFromLocalStorage() {
+      if (!_supabase) {
+        const p = localStorage.getItem('nova_league_players');
+        const m = localStorage.getItem('nova_league_matches');
+        const c = localStorage.getItem('nova_league_coupons');
+        const msg = localStorage.getItem('nova_league_messages');
+        if (p) state.players = JSON.parse(p);
+        if (m) state.matches = JSON.parse(m);
+        if (c) state.coupons = JSON.parse(c);
+        if (msg) state.messages = JSON.parse(msg);
+      }
+    }
+
+    function handleSecretAdminTrigger() {
+      adminClickCount++;
+      clearTimeout(adminClickTimer);
+      if (adminClickCount >= 5) {
+        adminClickCount = 0;
+        openAdminPanel();
+      } else {
+        adminClickTimer = setTimeout(() => { adminClickCount = 0; }, 2000);
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        openAdminPanel();
+      }
+    });
+
+    async function fetchFromDatabase() {
+      if (!_supabase) {
+        loadFromLocalStorage();
+        renderAll();
+        return;
+      }
+      
+      const { data: p } = await _supabase.from('jogadores').select('*');
+      if (p) state.players = p;
+
+      const { data: m } = await _supabase.from('partidas').select('*').order('created_at', { ascending: false });
+      if (m) state.matches = m;
+
+      const { data: c } = await _supabase.from('cupons').select('*');
+      if (c) state.coupons = c;
+
+      const { data: msg } = await _supabase.from('mensagens').select('*').order('created_at', { ascending: false });
+      if (msg) state.messages = msg;
+
+      renderAll();
+    }
+
+    function switchPlayerAuthTab(tab) {
+      const loginBtn = document.getElementById('tab-btn-login');
+      const registerBtn = document.getElementById('tab-btn-register');
+      const loginForm = document.getElementById('form-player-login');
+      const registerForm = document.getElementById('form-player-register');
+
+      if (tab === 'login') {
+        loginBtn.classList.add('active');
+        registerBtn.classList.remove('active');
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+      } else {
+        registerBtn.classList.add('active');
+        loginBtn.classList.remove('active');
+        registerForm.classList.remove('hidden');
+        loginForm.classList.add('hidden');
+      }
+    }
+
+    function handlePlayerLogin() {
+      const inputId = document.getElementById('player-login-id').value.trim();
+      const inputPass = document.getElementById('player-login-pass').value.trim();
+
+      const player = state.players.find(p => String(p.gameId) === String(inputId));
+
+      if (!player) {
+        showToast('ID não encontrado no servidor! Verifique com o ADM.', 'danger');
+        return;
+      }
+
+      if (!player.password) {
+        showToast('Este ID ainda não possui senha! Vá na aba "Criar Senha".', 'danger');
+        return;
+      }
+
+      if (player.password !== inputPass) {
+        showToast('Senha incorreta! Tente novamente.', 'danger');
+        return;
+      }
+
+      state.currentPlayer = player;
+      closeModal('modal-player-auth');
+      showToast(`Bem-vindo de volta, ${escapeHTML(player.nick)}!`, 'success');
+      renderAll();
+    }
+
+    async function handlePlayerRegister() {
+      const inputId = document.getElementById('player-reg-id').value.trim();
+      const newPass = document.getElementById('player-reg-pass').value.trim();
+
+      const player = state.players.find(p => String(p.gameId) === String(inputId));
+
+      if (!player) {
+        showToast('❌ ID Inválido! Você precisa estar cadastrado pelo ADM.', 'danger');
+        return;
+      }
+
+      if (player.password) {
+        showToast('Este ID já possui senha cadastrada! Utilize a aba "Entrar".', 'danger');
+        return;
+      }
+
+      if (_supabase) {
+        const { error } = await _supabase.from('jogadores').update({ password: newPass }).eq('gameId', inputId);
+        if (error) { showToast('Erro ao salvar no banco de dados.', 'danger'); return; }
+      }
+
+      player.password = newPass;
+      state.currentPlayer = player;
+      saveToLocalStorage();
+
+      closeModal('modal-player-auth');
+      showToast(`✓ ID Válido! Senha criada para ${escapeHTML(player.nick)}!`, 'success');
+      
+      document.getElementById('player-reg-id').value = '';
+      document.getElementById('player-reg-pass').value = '';
+      
+      renderAll();
+    }
+
+    function playerLogout() {
+      state.currentPlayer = null;
+      showToast('Sessão encerrada.');
+      renderAll();
+    }
+
+    function handleAdminAuth() {
+      const user = document.getElementById('admin-user-input').value.trim();
+      const pass = document.getElementById('admin-pass-input').value.trim();
+
+      const allowedAdmins = [
+        { login: 'adm.Jsantana@nova.com', pass: '85142215Jo.' },
+        { login: 'adm.LuisG@nova.com', pass: 'BR4DOCK77' },
+        { login: 'adm.Cvitor@nova.com', pass: 'nautico2009' }
+      ];
+
+      const isValidAdmin = allowedAdmins.some(admin => admin.login === user && admin.pass === pass);
+
+      if (isValidAdmin) {
+        state.isAdminAuthenticated = true;
+        closeModal('modal-admin-auth');
+        showToast('Autenticado como Administrador!', 'success');
+        openAdminPanel();
+      } else {
+        showToast('Credenciais de ADM inválidas!', 'danger');
+      }
+    }
+
+    function adminLogout() {
+      state.isAdminAuthenticated = false;
+      showToast('Sessão ADM encerrada.');
+      switchTab('view-home');
+    }
+
+    function openAdminPanel() {
+      if (!state.isAdminAuthenticated) {
+        openModal('modal-admin-auth');
+        return;
+      }
+      switchTab('view-admin');
+    }
+
+    function switchTab(tabId) {
+      if (tabId === 'view-admin' && !state.isAdminAuthenticated) {
+        openModal('modal-admin-auth');
+        return;
+      }
+
+      const tabs = ['view-home', 'view-ranking', 'view-matches', 'view-coupons', 'view-profile', 'view-admin'];
+      tabs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+
+      document.getElementById(tabId).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      const activeNav = document.getElementById('nav-' + tabId.replace('view-', ''));
+      if (activeNav) activeNav.classList.add('active');
+    }
+
+    function switchAdminSubtab(sub, element) {
+      document.querySelectorAll('.admin-tile').forEach(t => t.classList.remove('active'));
+      element.classList.add('active');
+
+      document.getElementById('admin-sub-players').classList.add('hidden');
+      document.getElementById('admin-sub-matches').classList.add('hidden');
+      document.getElementById('admin-sub-coupons').classList.add('hidden');
+      document.getElementById('admin-sub-messages').classList.add('hidden');
+
+      if (sub === 'players') document.getElementById('admin-sub-players').classList.remove('hidden');
+      if (sub === 'matches') document.getElementById('admin-sub-matches').classList.remove('hidden');
+      if (sub === 'coupons') document.getElementById('admin-sub-coupons').classList.remove('hidden');
+      if (sub === 'messages') document.getElementById('admin-sub-messages').classList.remove('hidden');
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    function showToast(msg, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      const color = type === 'danger' ? 'var(--neon-red)' : 'var(--neon-gold)';
+      toast.innerHTML = `<i class="fa-solid fa-circle-info" style="color: ${color}"></i> <span>${msg}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // CADASTRO INDIVIDUAL DE JOGADOR
+    async function handleAddPlayer() {
+      const nick = document.getElementById('new-player-nick').value.trim();
+      const gameId = document.getElementById('new-player-id').value.trim();
+
+      if (state.players.some(p => String(p.gameId) === String(gameId))) {
+        showToast('Este ID já está registrado no servidor!', 'danger');
+        return;
+      }
+
+      const newPlayer = {
+        nick: nick,
+        gameId: gameId,
+        password: null,
+        status: 'normal',
+        kills: 0,
+        matchesCount: 0,
+        earnings: 0.0
+      };
+
+      if (_supabase) {
+        const { data, error } = await _supabase.from('jogadores').insert([newPlayer]).select();
+        if (error) { showToast('Erro ao gravar jogador no banco de dados.', 'danger'); return; }
+        if (data) state.players.push(data[0]);
+      } else {
+        newPlayer.id = Date.now();
+        state.players.push(newPlayer);
+      }
+
+      saveToLocalStorage();
+      closeModal('modal-add-player');
+      document.getElementById('new-player-nick').value = '';
+      document.getElementById('new-player-id').value = '';
+      showToast('✓ ID registrado no servidor com sucesso!');
+      renderAll();
+    }
+
+    // IMPORTAÇÃO RÁPIDA DE IDs (ID, NICK)
+    async function handleBulkPlayersImport() {
+      const rawText = document.getElementById('bulk-players-input').value.trim();
+
+      if (!rawText) {
+        showToast('Cole a lista de jogadores!', 'danger');
+        return;
+      }
+
+      const lines = rawText.split('\n');
+      const playersToInsert = [];
+      let addedCount = 0;
+      let skippedCount = 0;
+
+      for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+
+        const parts = line.split(/[,;\t]/);
+        if (parts.length >= 2) {
+          const gameId = parts[0].trim();
+          const nick = parts.slice(1).join(',').trim().replace(/^["']|["']$/g, '');
+
+          if (!gameId || !nick) continue;
+
+          // Verifica se o ID já existe no estado ou no lote atual
+          const existsInState = state.players.some(p => String(p.gameId) === String(gameId));
+          const existsInBatch = playersToInsert.some(p => String(p.gameId) === String(gameId));
+
+          if (existsInState || existsInBatch) {
+            skippedCount++;
+            continue;
+          }
+
+          const newPlayer = {
+            nick: nick,
+            gameId: gameId,
+            password: null,
+            status: 'normal',
+            kills: 0,
+            matchesCount: 0,
+            earnings: 0.0
+          };
+
+          playersToInsert.push(newPlayer);
+          addedCount++;
+        }
+      }
+
+      if (playersToInsert.length > 0) {
+        if (_supabase) {
+          const { data, error } = await _supabase.from('jogadores').insert(playersToInsert).select();
+          if (error) {
+            showToast('Erro ao cadastrar jogadores no banco de dados.', 'danger');
+            return;
+          }
+          if (data) state.players.push(...data);
+        } else {
+          playersToInsert.forEach((p, idx) => { p.id = Date.now() + idx; });
+          state.players.push(...playersToInsert);
+        }
+
+        saveToLocalStorage();
+        closeModal('modal-bulk-players-import');
+        document.getElementById('bulk-players-input').value = '';
+
+        let msg = `✓ ${addedCount} novos jogadores cadastrados!`;
+        if (skippedCount > 0) msg += ` (${skippedCount} ignorados por já existirem)`;
+        showToast(msg, 'success');
+        renderAll();
+      } else {
+        showToast(skippedCount > 0 ? 'Todos os IDs informados já estão cadastrados!' : 'Nenhum formato válido encontrado. Use: ID, NICK', 'danger');
+      }
+    }
+
+    async function updatePlayerStatus(playerId, newStatus) {
+      if (newStatus === 'banned') {
+        const confirmDelete = confirm('⚠️ ATENÇÃO: Deseja realmente dar BAN PERMANENTE? Esta ação exclui o jogador do banco.');
+        if (!confirmDelete) {
+          renderAll();
+          return;
+        }
+
+        if (_supabase) {
+          await _supabase.from('jogadores').delete().eq('id', playerId);
+        }
+        state.players = state.players.filter(p => String(p.id) !== String(playerId));
+
+        if (state.currentPlayer && String(state.currentPlayer.id) === String(playerId)) {
+          state.currentPlayer = null;
+        }
+
+        saveToLocalStorage();
+        showToast('🔴 Jogador banido e removido!', 'danger');
+        renderAll();
+        return;
+      }
+
+      const player = state.players.find(p => String(p.id) === String(playerId));
+      if (player) {
+        player.status = newStatus;
+        if (_supabase) {
+          await _supabase.from('jogadores').update({ status: newStatus }).eq('id', playerId);
+        }
+        saveToLocalStorage();
+        showToast(`Status de ${escapeHTML(player.nick)} atualizado!`);
+        renderAll();
+      }
+    }
+
+    function openAddMatchModal() {
+      if (state.players.length === 0) {
+        showToast('Cadastre ao menos um jogador antes de criar partidas!', 'danger');
+        return;
+      }
+      document.getElementById('match-players-container').innerHTML = '';
+
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById('match-datetime').value = now.toISOString().slice(0, 16);
+
+      addPlayerRowToMatch();
+      openModal('modal-add-match');
+    }
+
+    function addPlayerRowToMatch() {
+      const container = document.getElementById('match-players-container');
+      const rowId = 'player-row-' + Date.now() + Math.random().toString(36).substring(2, 5);
+      
+      const options = state.players.map(p => `<option value="${p.id}">${escapeHTML(p.nick)} (ID: ${escapeHTML(p.gameId)})</option>`).join('');
+
+      const row = document.createElement('div');
+      row.className = 'player-entry-card';
+      row.id = rowId;
+      row.innerHTML = `
+        <button type="button" class="btn-remove-row" onclick="removePlayerRow('${rowId}')"><i class="fa-solid fa-xmark"></i></button>
+        <div class="form-group">
+          <label>JOGADOR</label>
+          <select class="form-control match-p-id" required>${options}</select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div class="form-group">
+            <label>KILLS</label>
+            <input type="number" class="form-control match-p-kills" value="0" min="0" required>
+          </div>
+          <div class="form-group">
+            <label>POSIÇÃO</label>
+            <input type="number" class="form-control match-p-pos" value="1" min="1" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>VALOR/KILL (R$)</label>
+          <input type="number" class="form-control match-p-valkill" value="4.00" step="0.50" required>
+        </div>
+      `;
+      container.appendChild(row);
+    }
+
+    function removePlayerRow(rowId) {
+      const rows = document.querySelectorAll('.player-entry-card');
+      if (rows.length <= 1) {
+        showToast('A partida deve conter ao menos 1 jogador.', 'danger');
+        return;
+      }
+      document.getElementById(rowId).remove();
+    }
+
+    async function handleAddMatch() {
+      const matchNum = document.getElementById('match-number').value.trim();
+      const datetimeInput = document.getElementById('match-datetime').value;
+      const top1Bonus = parseFloat(document.getElementById('match-top1-bonus').value) || 0;
+      const top2Bonus = parseFloat(document.getElementById('match-top2-bonus').value) || 0;
+      const rows = document.querySelectorAll('.player-entry-card');
+
+      if (rows.length === 0) {
+        showToast('Adicione pelo menos um jogador!', 'danger');
+        return;
+      }
+
+      const selectedPlayerIds = [];
+      for (const row of rows) {
+        const pId = row.querySelector('.match-p-id').value;
+        if (selectedPlayerIds.includes(pId)) {
+          showToast('Erro: O mesmo jogador foi selecionado mais de uma vez!', 'danger');
+          return;
+        }
+        selectedPlayerIds.push(pId);
+      }
+
+      let formattedDate = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      if (datetimeInput) {
+        const dtObj = new Date(datetimeInput);
+        formattedDate = dtObj.toLocaleDateString('pt-BR') + ' às ' + dtObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      for (const row of rows) {
+        const playerId = row.querySelector('.match-p-id').value;
+        const kills = parseInt(row.querySelector('.match-p-kills').value) || 0;
+        const pos = parseInt(row.querySelector('.match-p-pos').value) || 1;
+        const killVal = parseFloat(row.querySelector('.match-p-valkill').value) || 0;
+
+        let bonus = 0;
+        if (pos === 1) bonus = top1Bonus;
+        else if (pos === 2) bonus = top2Bonus;
+
+        const totalEarned = (kills * killVal) + bonus;
+        const player = state.players.find(p => String(p.id) === String(playerId));
+
+        if (player) {
+          const newKills = player.kills + kills;
+          const newMatches = player.matchesCount + 1;
+          const newEarnings = player.earnings + totalEarned;
+
+          const newMatchRecord = {
+            number: matchNum,
+            playerId: player.id,
+            playerGameId: player.gameId,
+            playerNick: player.nick,
+            date: formattedDate,
+            kills: kills,
+            pos: pos,
+            total: totalEarned
+          };
+
+          if (_supabase) {
+            await _supabase.from('partidas').insert([newMatchRecord]);
+            await _supabase.from('jogadores').update({
+              kills: newKills,
+              matchesCount: newMatches,
+              earnings: newEarnings
+            }).eq('id', player.id);
+          }
+
+          player.kills = newKills;
+          player.matchesCount = newMatches;
+          player.earnings = newEarnings;
+          state.matches.unshift(newMatchRecord);
+        }
+      }
+
+      saveToLocalStorage();
+      closeModal('modal-add-match');
+      showToast(`✓ Partida "${escapeHTML(matchNum)}" registrada!`);
+      renderAll();
+    }
+
+    async function handleBulkImport() {
+      const matchNum = document.getElementById('bulk-match-number').value.trim();
+      const datetimeInput = document.getElementById('bulk-match-datetime').value;
+      const rawText = document.getElementById('bulk-data-input').value.trim();
+      const killVal = parseFloat(document.getElementById('bulk-kill-val').value) || 0;
+      const top1Val = parseFloat(document.getElementById('bulk-top1-val').value) || 0;
+      const top2Val = parseFloat(document.getElementById('bulk-top2-val').value) || 0;
+
+      if (!matchNum || !rawText) {
+        showToast('Preencha os campos obrigatórios!', 'danger');
+        return;
+      }
+
+      let formattedDate = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      if (datetimeInput) {
+        const dtObj = new Date(datetimeInput);
+        formattedDate = dtObj.toLocaleDateString('pt-BR') + ' às ' + dtObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      const lines = rawText.split('\n');
+      const matchesToInsert = [];
+      let importedCount = 0;
+
+      for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+
+        const parts = line.split(/[,;\t]+/).map(s => s.trim());
+        const gameId = parts[0];
+        const kills = parseInt(parts[1]) || 0;
+        const pos = parseInt(parts[2]) || 1;
+
+        const player = state.players.find(p => String(p.gameId) === String(gameId));
+
+        if (player) {
+          let bonusPos = 0;
+          if (pos === 1) bonusPos = top1Val;
+          else if (pos === 2) bonusPos = top2Val;
+
+          const totalEarned = (kills * killVal) + bonusPos;
+          
+          const newMatchRecord = {
+            number: matchNum,
+            playerId: player.id,
+            playerGameId: player.gameId,
+            playerNick: player.nick,
+            date: formattedDate,
+            kills: kills,
+            pos: pos,
+            total: totalEarned
+          };
+
+          matchesToInsert.push(newMatchRecord);
+
+          player.kills += kills;
+          player.matchesCount += 1;
+          player.earnings += totalEarned;
+
+          if (_supabase) {
+            await _supabase.from('jogadores').update({
+              kills: player.kills,
+              matchesCount: player.matchesCount,
+              earnings: player.earnings
+            }).eq('id', player.id);
+          }
+
+          importedCount++;
+        }
+      }
+
+      if (matchesToInsert.length > 0) {
+        if (_supabase) {
+          const { data } = await _supabase.from('partidas').insert(matchesToInsert).select();
+          if (data) state.matches.unshift(...data);
+        } else {
+          state.matches.unshift(...matchesToInsert);
+        }
+
+        saveToLocalStorage();
+        closeModal('modal-bulk-import');
+        document.getElementById('bulk-data-input').value = '';
+        showToast(`✓ ${importedCount} resultados importados!`);
+        renderAll();
+      } else {
+        showToast('Nenhum ID correspondente encontrado.', 'danger');
+      }
+    }
+
+    async function handleAddCoupon() {
+      const code = document.getElementById('coupon-code').value.trim();
+      const discount = document.getElementById('coupon-discount').value.trim();
+      const valid = document.getElementById('coupon-valid').value.trim();
+
+      const newCoupon = { code, discount, valid };
+
+      if (_supabase) {
+        const { data } = await _supabase.from('cupons').insert([newCoupon]).select();
+        if (data) state.coupons.push(data[0]);
+      } else {
+        newCoupon.id = Date.now();
+        state.coupons.push(newCoupon);
+      }
+
+      saveToLocalStorage();
+      closeModal('modal-add-coupon');
+      showToast('✓ Cupom adicionado!');
+      renderAll();
+    }
+
+    function copyCoupon(code, btn) {
+      navigator.clipboard.writeText(code);
+      btn.innerText = '✓ COPIADO';
+      showToast(`Cupom ${code} copiado!`);
+      setTimeout(() => { btn.innerText = 'COPIAR CÓDIGO'; }, 2000);
+    }
+
+    async function handleSendMessage() {
+      const targetId = document.getElementById('msg-recipient').value;
+      const text = document.getElementById('msg-text').value.trim();
+
+      if (!text) {
+        showToast('Digite a mensagem!', 'danger');
+        return;
+      }
+
+      const currentDate = new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const newMsg = {
+        id: Date.now(),
+        recipientId: targetId,
+        text: text,
+        date: currentDate,
+        readBy: []
+      };
+
+      if (_supabase) {
+        const { data } = await _supabase.from('mensagens').insert([newMsg]).select();
+        if (data) state.messages.unshift(data[0]);
+      } else {
+        state.messages.unshift(newMsg);
+      }
+
+      saveToLocalStorage();
+      document.getElementById('msg-text').value = '';
+      showToast('📢 Comunicado enviado com sucesso!');
+      renderAll();
+    }
+
+    async function deleteMessage(msgId) {
+      if (!confirm('Deseja excluir este comunicado?')) return;
+
+      if (_supabase) {
+        await _supabase.from('mensagens').delete().eq('id', msgId);
+      }
+
+      state.messages = state.messages.filter(m => String(m.id) !== String(msgId));
+      saveToLocalStorage();
+      showToast('Comunicado removido.');
+      renderAll();
+    }
+
+    async function markMessageAsRead(msgId) {
+      if (!state.currentPlayer) return;
+
+      const msg = state.messages.find(m => String(m.id) === String(msgId));
+      if (msg) {
+        if (!msg.readBy) msg.readBy = [];
+        if (!msg.readBy.includes(state.currentPlayer.id)) {
+          msg.readBy.push(state.currentPlayer.id);
+          if (_supabase) {
+            await _supabase.from('mensagens').update({ readBy: msg.readBy }).eq('id', msgId);
+          }
+          saveToLocalStorage();
+          renderAll();
+        }
+      }
+    }
+
+    function toggleMatchGroup(id) {
+      const target = document.getElementById(id);
+      const icon = document.getElementById('icon-' + id);
+      if (target) {
+        target.classList.toggle('hidden');
+        if (icon) {
+          icon.classList.toggle('fa-chevron-down');
+          icon.classList.toggle('fa-chevron-up');
+        }
+      }
+    }
+
+    function getGroupedMatches(filterGameId = null) {
+      const groups = {};
+      
+      let sourceMatches = state.matches;
+      if (filterGameId) {
+        sourceMatches = state.matches.filter(m => String(m.playerGameId).includes(String(filterGameId)));
+      }
+
+      sourceMatches.forEach(m => {
+        const groupKey = m.number + '_' + (m.date || 'sem_data');
+        if (!groups[groupKey]) {
+          groups[groupKey] = {
+            key: groupKey,
+            number: m.number,
+            date: m.date || 'Data não informada',
+            players: []
+          };
+        }
+        groups[groupKey].players.push(m);
+      });
+
+      return Object.values(groups);
+    }
+
+    function renderMatchGroupHTML(group, groupIndex) {
+      const sortedPlayers = [...group.players].sort((a, b) => a.pos - b.pos);
+
+      let myIndex = -1;
+      if (state.currentPlayer) {
+        myIndex = sortedPlayers.findIndex(p => String(p.playerGameId) === String(state.currentPlayer.gameId));
+      }
+
+      let meHighlightedHTML = '';
+      if (myIndex !== -1) {
+        const myRecord = sortedPlayers[myIndex];
+        meHighlightedHTML = `
+          <div style="margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed var(--neon-gold);">
+            <div style="font-size: 11px; color: var(--neon-gold); font-weight: 700; margin-bottom: 4px;">Sua Posição nesta Partida:</div>
+            <div class="player-row-item highlight-me">
+              <div>
+                <span class="player-row-title">#${myRecord.pos} ${escapeHTML(myRecord.playerNick)} // ${escapeHTML(myRecord.playerGameId)}</span>
+              </div>
+              <div style="text-align: right;">
+                <strong style="color: var(--neon-gold);">${myRecord.kills} Kills</strong>
+                <div style="font-size: 11px; color: var(--neon-green);">R$ ${parseFloat(myRecord.total).toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      const allPlayersListHTML = sortedPlayers.map(p => {
+        const isMe = state.currentPlayer && String(p.playerGameId) === String(state.currentPlayer.gameId);
+        return `
+          <div class="player-row-item ${isMe ? 'highlight-me' : ''}">
+            <div>
+              <span class="player-row-title">#${p.pos} ${escapeHTML(p.playerNick)} // ${escapeHTML(p.playerGameId)}</span>
+            </div>
+            <div style="text-align: right;">
+              <strong style="color: var(--neon-gold);">${p.kills} Kills</strong>
+              <div style="font-size: 11px; color: var(--neon-green);">R$ ${parseFloat(p.total).toFixed(2)}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const accordionId = 'match-details-' + groupIndex;
+
+      return `
+        <div class="match-group-card">
+          <button class="match-header-btn" onclick="toggleMatchGroup('${accordionId}')">
+            <div>
+              <h4 style="font-family: var(--font-sub); font-size: 15px; color: var(--neon-gold);">${escapeHTML(group.number)}</h4>
+              <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                <i class="fa-regular fa-clock"></i> ${escapeHTML(group.date)} | <i class="fa-solid fa-users"></i> ${group.players.length} Jogadores
+              </p>
+            </div>
+            <i class="fa-solid fa-chevron-down" id="icon-${accordionId}" style="color: var(--neon-gold);"></i>
+          </button>
+          
+          <div id="${accordionId}" class="match-details-box hidden">
+            ${meHighlightedHTML}
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-bottom: 6px;">
+              Lista de #${sortedPlayers[0]?.pos || 1} a #${sortedPlayers[sortedPlayers.length - 1]?.pos || sortedPlayers.length}:
+            </div>
+            ${allPlayersListHTML}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMatchesOnly() {
+      const fullMatchesList = document.getElementById('full-matches-list');
+      const filterId = document.getElementById('filter-match-id')?.value.trim();
+      const allGroups = getGroupedMatches(filterId);
+      
+      const totalPages = Math.ceil(allGroups.length / MATCHES_PER_PAGE) || 1;
+      if (currentMatchPage > totalPages) currentMatchPage = totalPages;
+      if (currentMatchPage < 1) currentMatchPage = 1;
+
+      const startIndex = (currentMatchPage - 1) * MATCHES_PER_PAGE;
+      const paginatedGroups = allGroups.slice(startIndex, startIndex + MATCHES_PER_PAGE);
+
+      if (paginatedGroups.length === 0) {
+        fullMatchesList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i><p>${filterId ? 'Nenhum resultado para o ID ' + escapeHTML(filterId) : 'Nenhuma partida registrada.'}</p></div>`;
+      } else {
+        fullMatchesList.innerHTML = paginatedGroups.map((g, idx) => renderMatchGroupHTML(g, 'full-' + idx)).join('');
+      }
+
+      document.getElementById('page-indicator').innerText = `Página ${currentMatchPage} de ${totalPages}`;
+      document.getElementById('btn-prev-page').disabled = currentMatchPage === 1;
+      document.getElementById('btn-next-page').disabled = currentMatchPage === totalPages;
+    }
+
+    function changeMatchPage(direction) {
+      currentMatchPage += direction;
+      renderMatchesOnly();
+    }
+
+    function renderAll() {
+      const loggedOutView = document.getElementById('player-logged-out-view');
+      const loggedInView = document.getElementById('player-logged-in-view');
+
+      if (!state.currentPlayer) {
+        loggedOutView.classList.remove('hidden');
+        loggedInView.classList.add('hidden');
+      } else {
+        loggedOutView.classList.add('hidden');
+        loggedInView.classList.remove('hidden');
+
+        const p = state.currentPlayer;
+        document.getElementById('dash-player-nick').innerText = p.nick;
+        document.getElementById('dash-player-id').innerText = p.gameId;
+        document.getElementById('dash-kills').innerText = p.kills;
+        document.getElementById('dash-matches').innerText = p.matchesCount;
+        document.getElementById('dash-earnings').innerText = `R$ ${parseFloat(p.earnings).toFixed(2)}`;
+
+        const sorted = [...state.players].sort((a, b) => b.kills - a.kills);
+        const rankIndex = sorted.findIndex(item => String(item.id) === String(p.id));
+        document.getElementById('dash-rank').innerText = rankIndex !== -1 ? `#${rankIndex + 1}` : '--';
+
+        const myGroups = getGroupedMatches(p.gameId);
+        const homeMatchesList = document.getElementById('home-matches-list');
+
+        if (myGroups.length === 0) {
+          homeMatchesList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-gamepad"></i><p>Nenum resultado registrado para seu ID.</p></div>`;
+        } else {
+          homeMatchesList.innerHTML = myGroups.map((g, idx) => renderMatchGroupHTML(g, 'home-' + idx)).join('');
+        }
+      }
+
+      renderMatchesOnly();
+
+      // RANKING
+      const rankingContainer = document.getElementById('ranking-list-container');
+      if (state.players.length === 0) {
+        rankingContainer.innerHTML = `<div class="empty-state"><i class="fa-solid fa-trophy"></i><p>Nenhum participante no ranking.</p></div>`;
+      } else {
+        const sortedPlayers = [...state.players].sort((a, b) => b.kills - a.kills);
+        rankingContainer.innerHTML = sortedPlayers.map((p, idx) => `
+          <div class="card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-family: var(--font-heading); font-size: 15px; color: var(--neon-gold);">#${idx + 1}</span>
+              <div>
+                <strong style="color: #fff; font-size: 13px;">${escapeHTML(p.nick)}</strong>
+                <div style="font-size: 10px; color: var(--text-muted);">ID: ${escapeHTML(p.gameId)} | Partidas: ${p.matchesCount}</div>
+              </div>
+            </div>
+            <div style="font-family: var(--font-sub); font-weight: 700; color: var(--neon-gold); font-size: 16px;">
+              ${p.kills} Kills
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // CUPONS
+      const couponsContainer = document.getElementById('coupons-list-container');
+      if (state.coupons.length === 0) {
+        couponsContainer.innerHTML = `<div class="empty-state"><i class="fa-solid fa-ticket"></i><p>Nenhum cupom ativo no momento.</p></div>`;
+      } else {
+        couponsContainer.innerHTML = state.coupons.map(c => `
+          <div class="coupon-card">
+            <div>
+              <div class="coupon-code">${escapeHTML(c.code)}</div>
+              <div style="font-size: 12px; font-weight: 700; color: var(--neon-green);">${escapeHTML(c.discount)}</div>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Validade: ${escapeHTML(c.valid)}</div>
+            </div>
+            <button class="btn-copy" onclick="copyCoupon('${escapeHTML(c.code)}', this)">COPIAR CÓDIGO</button>
+          </div>
+        `).join('');
+      }
+
+      // PERFIL E NOTIFICAÇÕES DE AVISOS
+      const profileContent = document.getElementById('profile-content');
+      let hasNotificationBadge = false;
+
+      if (state.currentPlayer) {
+        const pStatus = state.currentPlayer.status || 'normal';
+        let statusBadgeHTML = '<span class="badge badge-normal">🟢 NORMAL</span>';
+        let warningBoxHTML = '';
+
+        if (pStatus === 'warning1') {
+          hasNotificationBadge = true;
+          statusBadgeHTML = '<span class="badge badge-warning1">🟡 1º AVISO</span>';
+          warningBoxHTML = `
+            <div class="alert-card warning1">
+              <i class="fa-solid fa-triangle-exclamation" style="font-size: 18px;"></i>
+              <div>
+                <strong>Aviso Importante (1º Aviso):</strong> Sua conta recebeu uma advertência por descumprimento de regras leves do campeonato.
+              </div>
+            </div>
+          `;
+        } else if (pStatus === 'warning2') {
+          hasNotificationBadge = true;
+          statusBadgeHTML = '<span class="badge badge-warning2">🟠 2º AVISO DE INFRAÇÃO</span>';
+          warningBoxHTML = `
+            <div class="alert-card warning2">
+              <i class="fa-solid fa-radiation" style="font-size: 18px;"></i>
+              <div>
+                <strong>Aviso Crítico (2º Aviso):</strong> Sua conta possui 2 advertências ativas! Uma nova infração resultará no BANIMENTO PERMANENTE.
+              </div>
+            </div>
+          `;
+        }
+
+        const myMessages = state.messages.filter(m => 
+          m.recipientId === 'all' || String(m.recipientId) === String(state.currentPlayer.id)
+        );
+
+        const unreadCount = myMessages.filter(m => !m.readBy || !m.readBy.includes(state.currentPlayer.id)).length;
+        if (unreadCount > 0) hasNotificationBadge = true;
+
+        let messagesListHTML = '';
+        if (myMessages.length === 0) {
+          messagesListHTML = `<div style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 10px;">Nenhuma mensagem ou aviso recebido.</div>`;
+        } else {
+          messagesListHTML = myMessages.map(m => {
+            const isRead = m.readBy && m.readBy.includes(state.currentPlayer.id);
+            const badgeType = m.recipientId === 'all' ? '<span class="badge badge-pending">📢 GERAL</span>' : '<span class="badge badge-paid">📩 DIRETO</span>';
+            return `
+              <div class="card" style="margin-bottom: 8px; padding: 10px; border-left: 3px solid ${isRead ? 'var(--border-color)' : 'var(--neon-gold)'};">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <div>${badgeType} <span style="font-size: 10px; color: var(--text-muted); margin-left: 6px;">${escapeHTML(m.date)}</span></div>
+                  ${!isRead ? `<button class="btn-copy" style="font-size: 9px; padding: 3px 6px;" onclick="markMessageAsRead('${m.id}')">Marcar Lida</button>` : '<span style="font-size: 10px; color: var(--neon-green);">✓ Lida</span>'}
+                </div>
+                <div style="font-size: 12px; color: #fff; line-height: 1.4;">${escapeHTML(m.text)}</div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        profileContent.innerHTML = `
+          <div class="card" style="text-align: center;">
+            <div style="width: 60px; height: 60px; font-size: 20px; margin: 0 auto 10px auto; border-radius: 50%; background: #1c2432; display: flex; align-items: center; justify-content: center; border: 1px solid var(--neon-gold);">
+              <i class="fa-solid fa-user" style="color: var(--neon-gold);"></i>
+            </div>
+            <h3 style="font-family: var(--font-heading); font-size: 16px;">${escapeHTML(state.currentPlayer.nick)}</h3>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px;">ID Free Fire: ${escapeHTML(state.currentPlayer.gameId)}</p>
+            <div style="margin-bottom: 14px;">${statusBadgeHTML}</div>
+            
+            ${warningBoxHTML}
+
+            <button class="btn-primary" onclick="openModal('modal-support')">
+              <i class="fa-solid fa-headset"></i> SUPORTE E FAQ
+            </button>
+          </div>
+
+          <div class="section-header">
+            <div class="section-title"><i class="fa-solid fa-bell"></i> SEUS AVISOS E COMUNICADOS</div>
+          </div>
+          ${messagesListHTML}
+        `;
+      } else {
+        profileContent.innerHTML = `
+          <div class="empty-state">
+            <i class="fa-solid fa-user-lock"></i>
+            <p>Faça login ou crie sua senha com seu ID cadastrado.</p>
+          </div>
+        `;
+      }
+
+      // BADGE NO BOTTOM NAV
+      const navBadge = document.getElementById('nav-profile-badge');
+      if (hasNotificationBadge) {
+        navBadge.classList.remove('hidden');
+      } else {
+        navBadge.classList.add('hidden');
+      }
+
+      // PAINEL ADM
+      const totalEarnings = state.players.reduce((acc, p) => acc + parseFloat(p.earnings || 0), 0);
+      document.getElementById('admin-count-players').innerText = state.players.length;
+      document.getElementById('admin-count-matches').innerText = getGroupedMatches().length;
+      document.getElementById('admin-total-payout').innerText = `R$ ${totalEarnings.toFixed(2)}`;
+      document.getElementById('admin-count-coupons').innerText = state.coupons.length;
+
+      // TABELA DE JOGADORES NO ADM
+      const playersTable = document.getElementById('admin-players-table-body');
+      if (state.players.length === 0) {
+        playersTable.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Nenhum ID liberado no banco.</td></tr>`;
+      } else {
+        playersTable.innerHTML = state.players.map(p => {
+          const st = p.status || 'normal';
+          return `
+            <tr>
+              <td>
+                <strong>${escapeHTML(p.nick)}</strong>
+                <div style="font-size: 10px; color: var(--text-muted);">ID: ${escapeHTML(p.gameId)}</div>
+              </td>
+              <td>
+                ${p.password 
+                  ? '<span class="badge badge-paid">CRIADA</span>' 
+                  : '<span class="badge badge-pending">PENDENTE</span>'}
+              </td>
+              <td>
+                <select class="status-select" onchange="updatePlayerStatus('${p.id}', this.value)">
+                  <option value="normal" ${st === 'normal' ? 'selected' : ''}>🟢 Normal</option>
+                  <option value="warning1" ${st === 'warning1' ? 'selected' : ''}>🟡 1º Aviso</option>
+                  <option value="warning2" ${st === 'warning2' ? 'selected' : ''}>🟠 2º Aviso</option>
+                  <option value="banned">🔴 Ban (Excluir)</option>
+                </select>
+              </td>
+              <td><span style="color: var(--neon-green); font-weight: 700;">R$ ${parseFloat(p.earnings).toFixed(2)}</span></td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // SELECT DE DESTINATÁRIOS
+      const recipientSelect = document.getElementById('msg-recipient');
+      if (recipientSelect) {
+        recipientSelect.innerHTML = `<option value="all">📢 Todos os Jogadores (Global)</option>` + 
+          state.players.map(p => `<option value="${p.id}">👤 ${escapeHTML(p.nick)} (ID: ${escapeHTML(p.gameId)})</option>`).join('');
+      }
+
+      // HISTÓRICO DE MENSAGENS NO ADM
+      const msgHistory = document.getElementById('admin-messages-history');
+      if (msgHistory) {
+        if (state.messages.length === 0) {
+          msgHistory.innerHTML = `<div style="font-size: 11px; color: var(--text-muted);">Nenhuma mensagem enviada.</div>`;
+        } else {
+          msgHistory.innerHTML = state.messages.map(m => {
+            let targetLabel = '📢 Todos os Jogadores';
+            if (m.recipientId !== 'all') {
+              const targetPlayer = state.players.find(p => String(p.id) === String(m.recipientId));
+              targetLabel = targetPlayer ? `👤 ${escapeHTML(targetPlayer.nick)} (ID: ${escapeHTML(targetPlayer.gameId)})` : '👤 Jogador Removido';
+            }
+            return `
+              <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; margin-bottom: 6px; font-size: 11px;">
+                <div style="display: flex; justify-content: space-between; color: var(--neon-gold); font-weight: 700;">
+                  <span>Para: ${targetLabel}</span>
+                  <button class="btn-copy" style="background: rgba(231,76,60,0.2); color: var(--neon-red); font-size: 9px; padding: 2px 6px;" onclick="deleteMessage('${m.id}')">Excluir</button>
+                </div>
+                <div style="color: #fff; margin: 4px 0;">${escapeHTML(m.text)}</div>
+                <div style="font-size: 9px; color: var(--text-muted);">${escapeHTML(m.date)}</div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      // PARTIDAS ADM
+      const adminMatchesList = document.getElementById('admin-matches-list');
+      const allGroups = getGroupedMatches();
+      if (state.matches.length === 0) {
+        adminMatchesList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-gamepad"></i><p>Nenhuma partida criada.</p></div>`;
+      } else {
+        adminMatchesList.innerHTML = allGroups.map((g, idx) => renderMatchGroupHTML(g, 'admin-' + idx)).join('');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchFromDatabase();
+      renderAll();
+
+      const filterInput = document.getElementById('filter-match-id');
+      if (filterInput) {
+        filterInput.addEventListener('input', () => {
+          clearTimeout(filterDebounceTimer);
+          filterDebounceTimer = setTimeout(() => {
+            currentMatchPage = 1;
+            renderMatchesOnly();
+          }, 300);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
