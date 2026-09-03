@@ -562,7 +562,7 @@
       </div>
 
       <div style="border-top: 1px dashed var(--border-color); padding-top: 12px; margin-top: 12px; text-align: center;">
-        <a href="https://wa.me/5500000000000?text=Olá,%20preciso%20de%20suporte%20na%20NØVA%20LEAGUE!" target="_blank" class="btn-primary" style="background: #25D366; color: #fff; text-decoration: none;">
+        <a href="https://wa.me/5500000000000?text=Olá,%20preciso%20de%20suporte%20na%20NØVA%20LEAGUE!" target="_blank" rel="noopener noreferrer" class="btn-primary" style="background: #25D366; color: #fff; text-decoration: none;">
           <i class="fa-brands fa-whatsapp" style="font-size: 16px;"></i> Falar no WhatsApp
         </a>
       </div>
@@ -600,7 +600,7 @@
         </div>
         <div class="form-group">
           <label>CRIE UMA NOVA SENHA</label>
-          <input type="password" id="player-reg-pass" class="form-control" placeholder="Crie uma senha de acesso" required minlength="4">
+          <input type="password" id="player-reg-pass" class="form-control" placeholder="Crie uma senha de acesso" required minlength="4" maxlength="72">
         </div>
         <button type="submit" class="btn-primary">VERIFICAR & SALVAR</button>
       </form>
@@ -615,8 +615,8 @@
       </div>
       <form onsubmit="event.preventDefault(); handleAdminAuth();">
         <div class="form-group">
-          <label>USUÁRIO</label>
-          <input type="text" id="admin-user-input" class="form-control" placeholder="Login de administrador" required autocomplete="off">
+          <label>E-MAIL DO ADMINISTRADOR</label>
+          <input type="email" id="admin-user-input" class="form-control" placeholder="seuemail@exemplo.com" required autocomplete="off">
         </div>
         <div class="form-group">
           <label>SENHA</label>
@@ -890,8 +890,13 @@
         renderAll();
         return;
       }
-      
-      const { data: p } = await _supabase.from('jogadores').select('*');
+
+      // Nunca buscamos a coluna "password" aqui — o banco está configurado para nem
+      // permitir a leitura dela pela chave pública. Login/cadastro de senha acontecem
+      // via RPC (verify_player_password / register_player_password), que comparam a
+      // senha no servidor e nunca devolvem o valor pro navegador.
+      const { data: p } = await _supabase.from('jogadores')
+        .select('id, nick, gameId, status, kills, matchesCount, earnings, has_password, created_at');
       if (p) state.players = p;
 
       const { data: m } = await _supabase.from('partidas').select('*').order('created_at', { ascending: false });
@@ -903,7 +908,26 @@
       const { data: msg } = await _supabase.from('mensagens').select('*').order('created_at', { ascending: false });
       if (msg) state.messages = msg;
 
+      await restoreAdminSession();
       renderAll();
+    }
+
+    // Se o ADM já tinha feito login antes (sessão do Supabase Auth persistida),
+    // restaura o acesso ao painel sem precisar logar de novo — mas sempre
+    // reconferindo se essa conta continua na tabela admin_users.
+    async function restoreAdminSession() {
+      if (!_supabase) return;
+      const { data: { session } } = await _supabase.auth.getSession();
+      if (!session) {
+        state.isAdminAuthenticated = false;
+        return;
+      }
+      const { data: adminRow } = await _supabase
+        .from('admin_users')
+        .select('user_id')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      state.isAdminAuthenticated = Boolean(adminRow);
     }
 
     function switchPlayerAuthTab(tab) {
@@ -925,28 +949,35 @@
       }
     }
 
-    function handlePlayerLogin() {
+    async function handlePlayerLogin() {
       const inputId = document.getElementById('player-login-id').value.trim();
       const inputPass = document.getElementById('player-login-pass').value.trim();
 
-      const player = state.players.find(p => String(p.gameId) === String(inputId));
+      if (!_supabase) {
+        showToast('Login requer conexão com o banco de dados.', 'danger');
+        return;
+      }
+
+      // A senha nunca sai do servidor: essa função compara o hash internamente
+      // no Postgres e só devolve os dados do jogador se a senha bater.
+      const { data: player, error } = await _supabase
+        .rpc('verify_player_password', { p_game_id: inputId, p_password: inputPass })
+        .maybeSingle();
+
+      if (error) {
+        showToast('Erro ao tentar entrar. Tente novamente.', 'danger');
+        return;
+      }
 
       if (!player) {
-        showToast('ID não encontrado no servidor! Verifique com o ADM.', 'danger');
-        return;
-      }
-
-      if (!player.password) {
-        showToast('Este ID ainda não possui senha! Vá na aba "Criar Senha".', 'danger');
-        return;
-      }
-
-      if (player.password !== inputPass) {
-        showToast('Senha incorreta! Tente novamente.', 'danger');
+        showToast('ID, senha incorreta, ou senha ainda não criada.', 'danger');
         return;
       }
 
       state.currentPlayer = player;
+      const localRef = state.players.find(p => String(p.id) === String(player.id));
+      if (localRef) Object.assign(localRef, player);
+
       closeModal('modal-player-auth');
       showToast(`Bem-vindo de volta, ${escapeHTML(player.nick)}!`, 'success');
       renderAll();
@@ -956,33 +987,32 @@
       const inputId = document.getElementById('player-reg-id').value.trim();
       const newPass = document.getElementById('player-reg-pass').value.trim();
 
-      const player = state.players.find(p => String(p.gameId) === String(inputId));
-
-      if (!player) {
-        showToast('❌ ID Inválido! Você precisa estar cadastrado pelo ADM.', 'danger');
+      if (!_supabase) {
+        showToast('Cadastro de senha requer conexão com o banco de dados.', 'danger');
         return;
       }
 
-      if (player.password) {
-        showToast('Este ID já possui senha cadastrada! Utilize a aba "Entrar".', 'danger');
+      // Só cria a senha se o ID existir e ainda não tiver senha — tudo validado
+      // e gravado (com hash) dentro do banco, nunca em texto puro.
+      const { data: player, error } = await _supabase
+        .rpc('register_player_password', { p_game_id: inputId, p_password: newPass })
+        .maybeSingle();
+
+      if (error || !player) {
+        showToast('❌ ID inválido, ou este ID já possui senha cadastrada.', 'danger');
         return;
       }
 
-      if (_supabase) {
-        const { error } = await _supabase.from('jogadores').update({ password: newPass }).eq('gameId', inputId);
-        if (error) { showToast('Erro ao salvar no banco de dados.', 'danger'); return; }
-      }
-
-      player.password = newPass;
       state.currentPlayer = player;
-      saveToLocalStorage();
+      const localRef = state.players.find(p => String(p.id) === String(player.id));
+      if (localRef) Object.assign(localRef, player);
 
       closeModal('modal-player-auth');
       showToast(`✓ ID Válido! Senha criada para ${escapeHTML(player.nick)}!`, 'success');
-      
+
       document.getElementById('player-reg-id').value = '';
       document.getElementById('player-reg-pass').value = '';
-      
+
       renderAll();
     }
 
@@ -992,30 +1022,45 @@
       renderAll();
     }
 
-    function handleAdminAuth() {
+    async function handleAdminAuth() {
       const user = document.getElementById('admin-user-input').value.trim();
       const pass = document.getElementById('admin-pass-input').value.trim();
 
-      const allowedAdmins = [
-        { login: 'adm.Jsantana@nova.com', pass: '85142215Jo.' },
-        { login: 'adm.LuisG@nova.com', pass: 'BR4DOCK77' },
-        { login: 'adm.Cvitor@nova.com', pass: 'nautico2009' }
-      ];
-
-      const isValidAdmin = allowedAdmins.some(admin => admin.login === user && admin.pass === pass);
-
-      if (isValidAdmin) {
-        state.isAdminAuthenticated = true;
-        closeModal('modal-admin-auth');
-        showToast('Autenticado como Administrador!', 'success');
-        openAdminPanel();
-      } else {
-        showToast('Credenciais de ADM inválidas!', 'danger');
+      if (!_supabase) {
+        showToast('Login de ADM requer conexão com o banco de dados.', 'danger');
+        return;
       }
+
+      // Login de verdade pelo Supabase Auth — nenhuma senha de admin fica
+      // gravada no código-fonte do site.
+      const { data, error } = await _supabase.auth.signInWithPassword({ email: user, password: pass });
+
+      if (error || !data.session) {
+        showToast('Credenciais de ADM inválidas!', 'danger');
+        return;
+      }
+
+      const { data: adminRow } = await _supabase
+        .from('admin_users')
+        .select('user_id')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+
+      if (!adminRow) {
+        await _supabase.auth.signOut();
+        showToast('Esta conta não tem permissão de administrador.', 'danger');
+        return;
+      }
+
+      state.isAdminAuthenticated = true;
+      closeModal('modal-admin-auth');
+      showToast('Autenticado como Administrador!', 'success');
+      openAdminPanel();
     }
 
-    function adminLogout() {
+    async function adminLogout() {
       state.isAdminAuthenticated = false;
+      if (_supabase) await _supabase.auth.signOut();
       showToast('Sessão ADM encerrada.');
       switchTab('view-home');
     }
@@ -1578,16 +1623,19 @@
       if (!state.currentPlayer) return;
 
       const msg = state.messages.find(m => String(m.id) === String(msgId));
-      if (msg) {
-        if (!msg.readBy) msg.readBy = [];
-        if (!msg.readBy.includes(state.currentPlayer.id)) {
-          msg.readBy.push(state.currentPlayer.id);
-          if (_supabase) {
-            await _supabase.from('mensagens').update({ readBy: msg.readBy }).eq('id', msgId);
-          }
-          saveToLocalStorage();
-          renderAll();
+      if (msg && (!msg.readBy || !msg.readBy.includes(state.currentPlayer.id))) {
+        if (_supabase) {
+          // RPC estreita: só permite marcar a própria leitura, não editar a mensagem em si.
+          const { error } = await _supabase.rpc('mark_message_read', {
+            p_message_id: msg.id,
+            p_player_id: state.currentPlayer.id
+          });
+          if (error) return;
         }
+        if (!msg.readBy) msg.readBy = [];
+        msg.readBy.push(state.currentPlayer.id);
+        saveToLocalStorage();
+        renderAll();
       }
     }
 
@@ -1921,7 +1969,7 @@
                 <div style="font-size: 10px; color: var(--text-muted);">ID: ${escapeHTML(p.gameId)}</div>
               </td>
               <td>
-                ${p.password 
+                ${p.has_password 
                   ? '<span class="badge badge-paid">CRIADA</span>' 
                   : '<span class="badge badge-pending">PENDENTE</span>'}
               </td>
