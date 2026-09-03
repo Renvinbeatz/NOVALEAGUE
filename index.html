@@ -4,6 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>NØVA LEAGUE — Esportes Eletrônicos</title>
+
+  <!-- Ícones: favicon, ícone ao adicionar à tela inicial (iOS e Android) -->
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b0e14">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -68,10 +74,10 @@
     .brand { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
     .brand-logo {
       width: 36px; height: 36px;
-      background: linear-gradient(135deg, var(--neon-gold), var(--neon-purple));
-      border-radius: 10px; display: flex; align-items: center; justify-content: center;
-      font-family: var(--font-heading); font-weight: 900; color: #0b0e14; font-size: 18px;
+      border-radius: 10px;
+      object-fit: cover;
       box-shadow: 0 0 12px rgba(229, 184, 57, 0.3);
+      display: block;
     }
     .brand-title {
       font-family: var(--font-heading); font-size: 16px; font-weight: 900; letter-spacing: 1.2px;
@@ -332,7 +338,7 @@
 
   <header>
     <div class="brand" onclick="handleSecretAdminTrigger()">
-      <div class="brand-logo">N</div>
+      <img src="logo.png" alt="NØVA LEAGUE" class="brand-logo">
       <div class="brand-title">NØVA LEAGUE</div>
     </div>
   </header>
