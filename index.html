@@ -599,6 +599,13 @@
           <input type="number" id="player-reg-id" class="form-control" placeholder="Digite o ID cadastrado pelo ADM" required>
         </div>
         <div class="form-group">
+          <label style="color: var(--neon-gold);">CÓDIGO DE ATIVAÇÃO</label>
+          <input type="text" id="player-reg-code" class="form-control" placeholder="Código enviado pelo ADM no privado" required maxlength="12" style="text-transform: uppercase;">
+          <small style="color: var(--text-muted); font-size: 10px; margin-top: 4px; display: block;">
+            O ADM te envia esse código no privado quando cadastra seu ID. Ele existe pra ninguém conseguir criar uma senha pro SEU ID no seu lugar.
+          </small>
+        </div>
+        <div class="form-group">
           <label>CRIE UMA NOVA SENHA</label>
           <input type="password" id="player-reg-pass" class="form-control" placeholder="Crie uma senha de acesso" required minlength="4" maxlength="72">
         </div>
@@ -828,6 +835,14 @@
       messages: []
     };
 
+    // Colunas de "jogadores" que qualquer visitante pode ler (nunca inclui
+    // password nem activation_code — essas ficam bloqueadas no banco).
+    const PLAYER_PUBLIC_COLUMNS = 'id, nick, gameId, status, kills, matchesCount, earnings, has_password, created_at';
+    // Mesma lista + activation_code, usada SÓ em pontos que só rodam com
+    // uma sessão de admin autenticada (senão a consulta falharia inteira,
+    // já que o papel "anon" não tem permissão nenhuma nessa coluna).
+    const PLAYER_ADMIN_COLUMNS = PLAYER_PUBLIC_COLUMNS + ', activation_code';
+
     let adminClickCount = 0;
     let adminClickTimer = null;
     let filterDebounceTimer = null;
@@ -896,7 +911,7 @@
       // via RPC (verify_player_password / register_player_password), que comparam a
       // senha no servidor e nunca devolvem o valor pro navegador.
       const { data: p } = await _supabase.from('jogadores')
-        .select('id, nick, gameId, status, kills, matchesCount, earnings, has_password, created_at');
+        .select(PLAYER_PUBLIC_COLUMNS);
       if (p) state.players = p;
 
       const { data: m } = await _supabase.from('partidas').select('*').order('created_at', { ascending: false });
@@ -928,6 +943,18 @@
         .eq('user_id', session.user.id)
         .maybeSingle();
       state.isAdminAuthenticated = Boolean(adminRow);
+      if (state.isAdminAuthenticated) await fetchAdminActivationCodes();
+    }
+
+    // Código de ativação só é legível por uma sessão autenticada de admin
+    // (bloqueado pra chave pública no banco) — por isso é buscado à parte,
+    // e só depois de confirmar que quem está logado é mesmo um admin.
+    async function fetchAdminActivationCodes() {
+      if (!_supabase || !state.isAdminAuthenticated) return;
+      const { data, error } = await _supabase.from('jogadores').select('id, activation_code');
+      if (error || !data) return;
+      const codeMap = new Map(data.map(r => [String(r.id), r.activation_code]));
+      state.players.forEach(pl => { pl.activation_code = codeMap.get(String(pl.id)) || null; });
     }
 
     function switchPlayerAuthTab(tab) {
@@ -985,6 +1012,7 @@
 
     async function handlePlayerRegister() {
       const inputId = document.getElementById('player-reg-id').value.trim();
+      const inputCode = document.getElementById('player-reg-code').value.trim();
       const newPass = document.getElementById('player-reg-pass').value.trim();
 
       if (!_supabase) {
@@ -992,14 +1020,15 @@
         return;
       }
 
-      // Só cria a senha se o ID existir e ainda não tiver senha — tudo validado
-      // e gravado (com hash) dentro do banco, nunca em texto puro.
+      // Só cria a senha se o ID existir, ainda não tiver senha, E o código de
+      // ativação bater — sem isso, qualquer um que visse o ID no ranking
+      // conseguiria "roubar" a conta de outro jogador.
       const { data: player, error } = await _supabase
-        .rpc('register_player_password', { p_game_id: inputId, p_password: newPass })
+        .rpc('register_player_password', { p_game_id: inputId, p_activation_code: inputCode, p_password: newPass })
         .maybeSingle();
 
       if (error || !player) {
-        showToast('❌ ID inválido, ou este ID já possui senha cadastrada.', 'danger');
+        showToast('❌ ID, código de ativação inválido, ou este ID já possui senha.', 'danger');
         return;
       }
 
@@ -1011,6 +1040,7 @@
       showToast(`✓ ID Válido! Senha criada para ${escapeHTML(player.nick)}!`, 'success');
 
       document.getElementById('player-reg-id').value = '';
+      document.getElementById('player-reg-code').value = '';
       document.getElementById('player-reg-pass').value = '';
 
       renderAll();
@@ -1053,9 +1083,11 @@
       }
 
       state.isAdminAuthenticated = true;
+      await fetchAdminActivationCodes();
       closeModal('modal-admin-auth');
       showToast('Autenticado como Administrador!', 'success');
       openAdminPanel();
+      renderAll();
     }
 
     async function adminLogout() {
@@ -1145,7 +1177,7 @@
       };
 
       if (_supabase) {
-        const { data, error } = await _supabase.from('jogadores').insert([newPlayer]).select();
+        const { data, error } = await _supabase.from('jogadores').insert([newPlayer]).select(PLAYER_ADMIN_COLUMNS);
         if (error) { showToast('Erro ao gravar jogador no banco de dados.', 'danger'); return; }
         if (data) state.players.push(data[0]);
       } else {
@@ -1157,7 +1189,7 @@
       closeModal('modal-add-player');
       document.getElementById('new-player-nick').value = '';
       document.getElementById('new-player-id').value = '';
-      showToast('✓ ID registrado no servidor com sucesso!');
+      showToast('✓ ID registrado! Envie o código de ativação pro jogador no privado (aparece na tabela abaixo).');
       renderAll();
     }
 
@@ -1210,7 +1242,7 @@
 
       if (playersToInsert.length > 0) {
         if (_supabase) {
-          const { data, error } = await _supabase.from('jogadores').insert(playersToInsert).select();
+          const { data, error } = await _supabase.from('jogadores').insert(playersToInsert).select(PLAYER_ADMIN_COLUMNS);
           if (error) {
             showToast('Erro ao cadastrar jogadores no banco de dados.', 'danger');
             return;
@@ -1225,7 +1257,7 @@
         closeModal('modal-bulk-players-import');
         document.getElementById('bulk-players-input').value = '';
 
-        let msg = `✓ ${addedCount} novos jogadores cadastrados!`;
+        let msg = `✓ ${addedCount} novos jogadores cadastrados! Envie o código de ativação de cada um no privado (tabela abaixo).`;
         if (skippedCount > 0) msg += ` (${skippedCount} ignorados por já existirem)`;
         showToast(msg, 'success');
         renderAll();
@@ -1971,7 +2003,7 @@
               <td>
                 ${p.has_password 
                   ? '<span class="badge badge-paid">CRIADA</span>' 
-                  : '<span class="badge badge-pending">PENDENTE</span>'}
+                  : `<span class="badge badge-pending">PENDENTE</span>${p.activation_code ? `<div style="font-size: 9px; color: var(--text-muted); margin-top: 3px;">Código (enviar no privado): <strong style="color: var(--neon-gold); letter-spacing: 1px;">${escapeHTML(p.activation_code)}</strong></div>` : ''}`}
               </td>
               <td>
                 <select class="status-select" onchange="updatePlayerStatus('${p.id}', this.value)">

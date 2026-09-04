@@ -1,83 +1,70 @@
 -- ============================================================
--- NØVA LEAGUE — Hardening de Segurança
+-- NØVA LEAGUE — Hardening de Segurança (parte 2)
 -- Rode isso em: Supabase > SQL Editor > New query > Run
--- (depois de já ter rodado o supabase_setup.sql anterior)
+-- (depois de já ter rodado supabase_setup.sql e
+--  supabase_security_upgrade.sql, nessa ordem)
 -- ============================================================
 -- O que este script resolve:
 --
--- 1) As senhas de ADM estavam escritas em texto puro dentro do
---    HTML público do site (qualquer um via "Ver código-fonte" via
---    o painel). Agora o login de ADM passa a usar o Supabase Auth
---    de verdade — nenhuma senha fica no código.
+-- 1) SEQUESTRO DE CONTA: o ranking mostra publicamente o ID do
+--    Free Fire de todo jogador. Como "Criar Senha" só pedia o ID
+--    + uma senha nova, QUALQUER pessoa que visse o ID de alguém
+--    no ranking (antes dessa pessoa criar a própria senha)
+--    conseguia criar a senha primeiro e tomar a conta — kills,
+--    saldo, tudo. Agora exige também um código de ativação que
+--    só o ADM sabe e repassa em privado.
 --
--- 2) As tabelas estavam com política "allow all": qualquer pessoa
---    com a chave pública (que fica exposta no HTML, isso é normal
---    e esperado) conseguia ler e editar QUALQUER linha de QUALQUER
---    tabela direto pela API do Supabase, inclusive por fora do site
---    — sem precisar logar como ADM. Isso incluía ler a senha de
---    todos os jogadores, alterar kills/ganhos, apagar jogadores,
---    apagar partidas, criar cupons falsos, etc.
---
--- 3) A senha dos jogadores era gravada e lida em texto puro. Agora
---    é armazenada com hash (bcrypt) e a verificação acontece dentro
---    do banco via função seguraSQL — a senha em texto nunca mais
---    trafega de volta pro navegador em nenhuma consulta.
+-- 2) FORÇA BRUTA: nada impedia tentar senha ou código de ativação
+--    repetidamente sem limite. Agora, depois de 5 tentativas
+--    erradas seguidas, a conta trava por 15 minutos.
 -- ============================================================
 
 
 -- ------------------------------------------------------------
--- PARTE 1 — Extensão para hash de senha
+-- PARTE 1 — Novas colunas
 -- ------------------------------------------------------------
-create extension if not exists pgcrypto;
-
-
--- ------------------------------------------------------------
--- PARTE 2 — Tabela de administradores
--- Vincula contas do Supabase Auth (auth.users) a quem pode
--- administrar o site. Ver instruções no final deste arquivo
--- pra criar as contas e inserir aqui.
--- ------------------------------------------------------------
-create table if not exists public.admin_users (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  created_at timestamptz not null default now()
-);
-
-alter table public.admin_users enable row level security;
-
--- Um admin pode ver a lista de admins (só isso — sem insert/update/delete pelo site).
-create policy "admins podem ver admin_users" on public.admin_users
-  for select
-  to authenticated
-  using (exists (select 1 from public.admin_users a where a.user_id = auth.uid()));
-
-
--- ------------------------------------------------------------
--- PARTE 3 — Migrar a senha dos jogadores para hash
--- ------------------------------------------------------------
-
--- Coluna calculada: indica só se a senha existe, sem expor o valor.
 alter table public.jogadores
-  add column if not exists has_password boolean generated always as (password is not null) stored;
+  add column if not exists activation_code text
+    default upper(substr(md5(random()::text || clock_timestamp()::text), 1, 6));
 
--- Converte as senhas que já estavam em texto puro para hash (idempotente:
--- se já rodar de novo em cima de um hash, não tem problema, mas evite rodar 2x
--- sem necessidade). Se a tabela estiver vazia ou zerada, não faz nada.
+alter table public.jogadores
+  add column if not exists failed_login_attempts integer not null default 0;
+
+alter table public.jogadores
+  add column if not exists locked_until timestamptz;
+
+-- Preenche o código de ativação de jogadores que já existiam antes desse script
 update public.jogadores
-  set password = crypt(password, gen_salt('bf'))
-  where password is not null
-    and password not like '$2%';  -- pula quem já estiver em formato bcrypt
+  set activation_code = upper(substr(md5(random()::text || id::text), 1, 6))
+  where activation_code is null;
 
 
 -- ------------------------------------------------------------
--- PARTE 4 — Funções seguras (RPC) para login/cadastro de senha
--- e para marcar mensagem como lida. Rodam com privilégio elevado
--- (SECURITY DEFINER) só para essa ação específica e nada mais —
--- isso permite manter a tabela travada para o público em geral.
+-- PARTE 2 — Travar leitura direta dessas colunas pela chave pública
+-- (o código de ativação só pode ser lido por uma sessão de admin
+-- autenticada — é assim que o painel ADM consegue mostrar pra você
+-- repassar no privado, sem que apareça pra mais ninguém)
+-- ------------------------------------------------------------
+revoke select (activation_code, failed_login_attempts, locked_until)
+  on public.jogadores from anon;
+grant select (activation_code) on public.jogadores to authenticated;
+
+
+-- ------------------------------------------------------------
+-- PARTE 3 — Trocar as funções de login/cadastro por versões com
+-- exigência de código de ativação + bloqueio por tentativas
 -- ------------------------------------------------------------
 
--- Cadastra a senha (hash) de um jogador já existente, só se ele
--- ainda não tiver senha. Devolve os dados públicos do jogador.
-create or replace function public.register_player_password(p_game_id text, p_password text)
+-- Precisa apagar a versão antiga (2 parâmetros) explicitamente:
+-- só trocar o corpo com CREATE OR REPLACE não seria suficiente,
+-- porque a assinatura muda (agora são 3 parâmetros) — se a função
+-- antiga continuasse existindo, ela ainda poderia ser chamada
+-- direto pela API, ignorando a exigência do código de ativação.
+drop function if exists public.register_player_password(text, text);
+
+create or replace function public.register_player_password(
+  p_game_id text, p_activation_code text, p_password text
+)
 returns table (
   id bigint, nick text, "gameId" text, status text,
   kills integer, "matchesCount" integer, earnings numeric,
@@ -87,30 +74,52 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_row public.jogadores%rowtype;
 begin
   if p_password is null or length(p_password) < 4 then
     raise exception 'Senha muito curta';
   end if;
 
-  update public.jogadores j
-    set password = crypt(p_password, gen_salt('bf'))
-    where j."gameId" = p_game_id
-      and j.password is null;
-
+  select * into v_row from public.jogadores j where j."gameId" = p_game_id;
   if not found then
-    return;
+    return; -- ID não existe: não revela nada além disso
   end if;
+
+  if v_row.password is not null then
+    return; -- já tem senha, não deixa sobrescrever
+  end if;
+
+  if v_row.locked_until is not null and v_row.locked_until > now() then
+    raise exception 'Muitas tentativas incorretas. Tente novamente em alguns minutos.';
+  end if;
+
+  if v_row.activation_code is null or upper(v_row.activation_code) <> upper(trim(p_activation_code)) then
+    update public.jogadores
+      set failed_login_attempts = failed_login_attempts + 1,
+          locked_until = case when failed_login_attempts + 1 >= 5
+                          then now() + interval '15 minutes' else locked_until end
+      where id = v_row.id;
+    return; -- código errado
+  end if;
+
+  update public.jogadores
+    set password = crypt(p_password, gen_salt('bf')),
+        failed_login_attempts = 0,
+        locked_until = null
+    where id = v_row.id;
 
   return query
     select j.id, j.nick, j."gameId", j.status, j.kills, j."matchesCount",
            j.earnings, j.has_password, j.created_at
     from public.jogadores j
-    where j."gameId" = p_game_id;
+    where j.id = v_row.id;
 end;
 $$;
 
--- Verifica ID + senha e devolve os dados públicos do jogador se bater.
--- Não retorna nada (0 linhas) se a senha estiver errada ou não existir.
+grant execute on function public.register_player_password(text, text, text) to anon, authenticated;
+
+
 create or replace function public.verify_player_password(p_game_id text, p_password text)
 returns table (
   id bigint, nick text, "gameId" text, status text,
@@ -121,122 +130,56 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_row public.jogadores%rowtype;
 begin
-  return query
-    select j.id, j.nick, j."gameId", j.status, j.kills, j."matchesCount",
-           j.earnings, j.has_password, j.created_at
-    from public.jogadores j
-    where j."gameId" = p_game_id
-      and j.password is not null
-      and j.password = crypt(p_password, j.password);
+  select * into v_row from public.jogadores j where j."gameId" = p_game_id;
+  if not found then
+    return;
+  end if;
+
+  if v_row.locked_until is not null and v_row.locked_until > now() then
+    raise exception 'Conta temporariamente bloqueada por várias tentativas incorretas. Tente novamente em alguns minutos.';
+  end if;
+
+  if v_row.password is null then
+    return; -- ainda não criou senha: nada pra "adivinhar" aqui
+  end if;
+
+  if v_row.password = crypt(p_password, v_row.password) then
+    update public.jogadores set failed_login_attempts = 0, locked_until = null where id = v_row.id;
+    return query
+      select j.id, j.nick, j."gameId", j.status, j.kills, j."matchesCount",
+             j.earnings, j.has_password, j.created_at
+      from public.jogadores j
+      where j.id = v_row.id;
+    return;
+  end if;
+
+  -- senha errada: conta a tentativa
+  update public.jogadores
+    set failed_login_attempts = failed_login_attempts + 1,
+        locked_until = case when failed_login_attempts + 1 >= 5
+                        then now() + interval '15 minutes' else locked_until end
+    where id = v_row.id;
+
+  return;
 end;
 $$;
 
--- Marca uma mensagem como lida só pelo próprio jogador (não permite
--- editar texto, destinatário nem nada além do array de leitura).
-create or replace function public.mark_message_read(p_message_id bigint, p_player_id bigint)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  update public.mensagens m
-    set "readBy" = (
-      select coalesce(jsonb_agg(distinct v), '[]'::jsonb)
-      from (
-        select jsonb_array_elements(coalesce(m."readBy", '[]'::jsonb)) as v
-        union
-        select to_jsonb(p_player_id)
-      ) x
-    )
-    where m.id = p_message_id
-      and (m."recipientId" = 'all' or m."recipientId" = p_player_id::text);
-end;
-$$;
-
--- Essas funções rodam com privilégio elevado, mas fazem só a ação descrita.
--- Precisam ser chamáveis por qualquer visitante (jogador não está logado
--- no Supabase Auth, só no app).
-grant execute on function public.register_player_password(text, text) to anon, authenticated;
 grant execute on function public.verify_player_password(text, text) to anon, authenticated;
-grant execute on function public.mark_message_read(bigint, bigint) to anon, authenticated;
-
-
--- ------------------------------------------------------------
--- PARTE 5 — Travar a coluna "password" para leitura direta
--- Mesmo com a tabela liberada para SELECT, ninguém consegue mais
--- ler a coluna "password" (nem em hash) — só as funções acima,
--- que rodam com privilégio próprio, conseguem tocar nela.
--- ------------------------------------------------------------
-revoke select (password) on public.jogadores from anon, authenticated;
-
-
--- ------------------------------------------------------------
--- PARTE 6 — RLS: substitui as políticas "libera tudo" por regras reais
--- Leitura pública continua liberada (ranking, partidas, cupons e
--- mensagens são conteúdo do campeonato, isso é intencional).
--- Escrita (inserir/editar/apagar) passa a exigir uma sessão
--- autenticada que esteja na tabela admin_users.
--- ------------------------------------------------------------
-
-drop policy if exists "allow all - jogadores" on public.jogadores;
-drop policy if exists "allow all - partidas" on public.partidas;
-drop policy if exists "allow all - cupons" on public.cupons;
-drop policy if exists "allow all - mensagens" on public.mensagens;
-
-create policy "leitura publica - jogadores" on public.jogadores
-  for select to anon, authenticated using (true);
-create policy "admins escrevem - jogadores" on public.jogadores
-  for insert to authenticated with check (exists (select 1 from public.admin_users a where a.user_id = auth.uid()));
-create policy "admins atualizam - jogadores" on public.jogadores
-  for update to authenticated
-  using (exists (select 1 from public.admin_users a where a.user_id = auth.uid()))
-  with check (exists (select 1 from public.admin_users a where a.user_id = auth.uid()));
-create policy "admins apagam - jogadores" on public.jogadores
-  for delete to authenticated using (exists (select 1 from public.admin_users a where a.user_id = auth.uid()));
-
-create policy "leitura publica - partidas" on public.partidas
-  for select to anon, authenticated using (true);
-create policy "admins gerenciam - partidas" on public.partidas
-  for all to authenticated
-  using (exists (select 1 from public.admin_users a where a.user_id = auth.uid()))
-  with check (exists (select 1 from public.admin_users a where a.user_id = auth.uid()));
-
-create policy "leitura publica - cupons" on public.cupons
-  for select to anon, authenticated using (true);
-create policy "admins gerenciam - cupons" on public.cupons
-  for all to authenticated
-  using (exists (select 1 from public.admin_users a where a.user_id = auth.uid()))
-  with check (exists (select 1 from public.admin_users a where a.user_id = auth.uid()));
-
-create policy "leitura publica - mensagens" on public.mensagens
-  for select to anon, authenticated using (true);
-create policy "admins gerenciam - mensagens" on public.mensagens
-  for all to authenticated
-  using (exists (select 1 from public.admin_users a where a.user_id = auth.uid()))
-  with check (exists (select 1 from public.admin_users a where a.user_id = auth.uid()));
--- (marcar como lida continua funcionando pra qualquer jogador através
--- da função mark_message_read acima, que não depende dessas políticas)
 
 
 -- ============================================================
--- PRÓXIMOS PASSOS MANUAIS (fazer no painel do Supabase, não aqui)
+-- MUDANÇA NO SEU FLUXO DE TRABALHO COMO ADM
 -- ============================================================
--- 1. Vá em Authentication > Users > Add User e crie uma conta para
---    cada administrador (e-mail + senha NOVA — as senhas antigas
---    que estavam no código já vazaram publicamente, não reaproveite
---    nenhuma delas). Marque "Auto Confirm User" ao criar, já que
---    esses e-mails provavelmente não recebem o link de confirmação.
+-- Ao cadastrar um jogador novo (ID + nick), o painel ADM agora
+-- mostra, embaixo do badge "PENDENTE" na tabela de jogadores, um
+-- código de 6 caracteres (ex: A1B2C3). Envie esse código pro
+-- jogador NO PRIVADO (WhatsApp), junto com o ID dele — é isso que
+-- impede qualquer outra pessoa de criar a senha da conta dele
+-- primeiro.
 --
--- 2. Depois de criar cada conta, copie o UUID dela (aparece na lista
---    de usuários) e rode, para cada admin:
---
---    insert into public.admin_users (user_id) values ('COLE-O-UUID-AQUI');
---
--- 3. Pronto — só quem estiver logado com uma dessas contas consegue
---    usar o painel ADM. Delete os 3 usuários antigos de auth.users,
---    se sobrarem, e troque a senha de qualquer admin cuja senha
---    antiga (a que estava no HTML) tenha sido reaproveitada em
---    outro lugar.
+-- O código só some da tela quando o jogador finalmente cria a
+-- própria senha (o badge muda pra "CRIADA").
 -- ============================================================
