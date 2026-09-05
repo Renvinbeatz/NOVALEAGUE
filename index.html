@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NØVA LEAGUE — Esportes Eletrônicos</title>
+  <title>NØVA LEAGUE</title>
 
   <!-- Ícones: favicon, ícone ao adicionar à tela inicial (iOS e Android) -->
   <link rel="icon" type="image/png" href="logo.png">
@@ -804,15 +804,9 @@
   </nav>
 
   <script>
-    // ⚠️ IMPORTANTE: troque os dois valores abaixo pelas credenciais do SEU projeto Supabase
-    // (Project Settings > API, no painel do Supabase). Enquanto estiverem com o texto
-    // placeholder, o site funciona só no localStorage de CADA navegador — ou seja,
-    // o que o ADM cadastra não aparece pros outros jogadores.
     const SUPABASE_URL = 'https://iefsmifzahqxdoqdkvsx.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_UT3vk4ILNo8jIrC3PSUNkw_-I2JRhqZ';
 
-    // Checagem robusta: considera configurado só se parecer mesmo uma URL/chave reais,
-    // não apenas "diferente do texto placeholder" (evita falso-positivo por erro de digitação).
     const SUPABASE_CONFIGURED = Boolean(
       SUPABASE_URL && SUPABASE_URL.startsWith('https://') && SUPABASE_URL.includes('.supabase.co') &&
       SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length > 20
@@ -835,12 +829,7 @@
       messages: []
     };
 
-    // Colunas de "jogadores" que qualquer visitante pode ler (nunca inclui
-    // password nem activation_code — essas ficam bloqueadas no banco).
     const PLAYER_PUBLIC_COLUMNS = 'id, nick, gameId, status, kills, matchesCount, earnings, has_password, created_at';
-    // Mesma lista + activation_code, usada SÓ em pontos que só rodam com
-    // uma sessão de admin autenticada (senão a consulta falharia inteira,
-    // já que o papel "anon" não tem permissão nenhuma nessa coluna).
     const PLAYER_ADMIN_COLUMNS = PLAYER_PUBLIC_COLUMNS + ', activation_code';
 
     let adminClickCount = 0;
@@ -906,10 +895,6 @@
         return;
       }
 
-      // Nunca buscamos a coluna "password" aqui — o banco está configurado para nem
-      // permitir a leitura dela pela chave pública. Login/cadastro de senha acontecem
-      // via RPC (verify_player_password / register_player_password), que comparam a
-      // senha no servidor e nunca devolvem o valor pro navegador.
       const { data: p } = await _supabase.from('jogadores')
         .select(PLAYER_PUBLIC_COLUMNS);
       if (p) state.players = p;
@@ -927,9 +912,6 @@
       renderAll();
     }
 
-    // Se o ADM já tinha feito login antes (sessão do Supabase Auth persistida),
-    // restaura o acesso ao painel sem precisar logar de novo — mas sempre
-    // reconferindo se essa conta continua na tabela admin_users.
     async function restoreAdminSession() {
       if (!_supabase) return;
       const { data: { session } } = await _supabase.auth.getSession();
@@ -946,9 +928,6 @@
       if (state.isAdminAuthenticated) await fetchAdminActivationCodes();
     }
 
-    // Código de ativação só é legível por uma sessão autenticada de admin
-    // (bloqueado pra chave pública no banco) — por isso é buscado à parte,
-    // e só depois de confirmar que quem está logado é mesmo um admin.
     async function fetchAdminActivationCodes() {
       if (!_supabase || !state.isAdminAuthenticated) return;
       const { data, error } = await _supabase.from('jogadores').select('id, activation_code');
@@ -985,8 +964,6 @@
         return;
       }
 
-      // A senha nunca sai do servidor: essa função compara o hash internamente
-      // no Postgres e só devolve os dados do jogador se a senha bater.
       const { data: player, error } = await _supabase
         .rpc('verify_player_password', { p_game_id: inputId, p_password: inputPass })
         .maybeSingle();
@@ -1020,9 +997,6 @@
         return;
       }
 
-      // Só cria a senha se o ID existir, ainda não tiver senha, E o código de
-      // ativação bater — sem isso, qualquer um que visse o ID no ranking
-      // conseguiria "roubar" a conta de outro jogador.
       const { data: player, error } = await _supabase
         .rpc('register_player_password', { p_game_id: inputId, p_activation_code: inputCode, p_password: newPass })
         .maybeSingle();
@@ -1061,8 +1035,6 @@
         return;
       }
 
-      // Login de verdade pelo Supabase Auth — nenhuma senha de admin fica
-      // gravada no código-fonte do site.
       const { data, error } = await _supabase.auth.signInWithPassword({ email: user, password: pass });
 
       if (error || !data.session) {
@@ -1529,7 +1501,6 @@
       }
     }
 
-    // REMOVER PARTIDA PELO ADM
     async function deleteMatchGroup(groupKey) {
       if (!confirm('⚠️ Deseja realmente excluir esta partida? Os pontos e prêmios acumulados pelos jogadores nesta partida serão revertidos.')) return;
 
@@ -1586,7 +1557,6 @@
       renderAll();
     }
 
-    // REMOVER CUPOM PELO ADM
     async function deleteCoupon(couponId) {
       if (!confirm('Deseja realmente remover este cupom?')) return;
 
@@ -1618,7 +1588,6 @@
       const currentDate = new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
       const newMsg = {
-        id: Date.now(),
         recipientId: targetId,
         text: text,
         date: currentDate,
@@ -1629,6 +1598,7 @@
         const { data } = await _supabase.from('mensagens').insert([newMsg]).select();
         if (data) state.messages.unshift(data[0]);
       } else {
+        newMsg.id = Date.now();
         state.messages.unshift(newMsg);
       }
 
@@ -1657,7 +1627,6 @@
       const msg = state.messages.find(m => String(m.id) === String(msgId));
       if (msg && (!msg.readBy || !msg.readBy.includes(state.currentPlayer.id))) {
         if (_supabase) {
-          // RPC estreita: só permite marcar a própria leitura, não editar a mensagem em si.
           const { error } = await _supabase.rpc('mark_message_read', {
             p_message_id: msg.id,
             p_player_id: state.currentPlayer.id
@@ -2040,53 +2009,60 @@
         }
       }
 
-      // SELECT DE DESTINATÁRIOS
-      const recipientSelect = document.getElementById('msg-recipient');
-      if (recipientSelect) {
-        recipientSelect.innerHTML = `<option value="all">📢 Todos os Jogadores (Global)</option>` + 
-          state.players.map(p => `<option value="${p.id}">👤 ${escapeHTML(p.nick)} (ID: ${escapeHTML(p.gameId)})</option>`).join('');
+      // PARTIDAS NO ADM
+      const adminMatchesList = document.getElementById('admin-matches-list');
+      if (adminMatchesList) {
+        const allGroups = getGroupedMatches();
+        if (allGroups.length === 0) {
+          adminMatchesList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-gamepad"></i><p>Nenhuma partida registrada.</p></div>`;
+        } else {
+          adminMatchesList.innerHTML = allGroups.map((g, idx) => renderMatchGroupHTML(g, 'admin-' + idx, true)).join('');
+        }
+      }
+
+      // SELECT DE DESTINATÁRIOS EM MENSAGENS
+      const msgRecipientSelect = document.getElementById('msg-recipient');
+      if (msgRecipientSelect) {
+        let options = '<option value="all">📢 Todos os Jogadores (Aviso Geral)</option>';
+        state.players.forEach(p => {
+          options += `<option value="${p.id}">${escapeHTML(p.nick)} (ID: ${escapeHTML(p.gameId)})</option>`;
+        });
+        msgRecipientSelect.innerHTML = options;
       }
 
       // HISTÓRICO DE MENSAGENS NO ADM
-      const msgHistory = document.getElementById('admin-messages-history');
-      if (msgHistory) {
+      const adminMessagesHistory = document.getElementById('admin-messages-history');
+      if (adminMessagesHistory) {
         if (state.messages.length === 0) {
-          msgHistory.innerHTML = `<div style="font-size: 11px; color: var(--text-muted);">Nenhuma mensagem enviada.</div>`;
+          adminMessagesHistory.innerHTML = `<div class="empty-state"><i class="fa-solid fa-comment-dots"></i><p>Nenhum comunicado enviado.</p></div>`;
         } else {
-          msgHistory.innerHTML = state.messages.map(m => {
-            let targetLabel = '📢 Todos os Jogadores';
+          adminMessagesHistory.innerHTML = state.messages.map(m => {
+            let recipientName = '📢 Todos os Jogadores';
             if (m.recipientId !== 'all') {
-              const targetPlayer = state.players.find(p => String(p.id) === String(m.recipientId));
-              targetLabel = targetPlayer ? `👤 ${escapeHTML(targetPlayer.nick)} (ID: ${escapeHTML(targetPlayer.gameId)})` : '👤 Jogador Removido';
+              const target = state.players.find(p => String(p.id) === String(m.recipientId));
+              recipientName = target ? `📩 ${escapeHTML(target.nick)} (ID: ${escapeHTML(target.gameId)})` : `📩 ID: ${escapeHTML(m.recipientId)}`;
             }
             return `
-              <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); padding: 8px; border-radius: 6px; margin-bottom: 6px; font-size: 11px;">
-                <div style="display: flex; justify-content: space-between; color: var(--neon-gold); font-weight: 700;">
-                  <span>Para: ${targetLabel}</span>
-                  <button class="btn-copy" style="background: rgba(231,76,60,0.2); color: var(--neon-red); font-size: 9px; padding: 2px 6px;" onclick="deleteMessage('${m.id}')">Excluir</button>
+              <div class="card" style="margin-bottom: 8px; padding: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <strong style="font-size: 11px; color: var(--neon-gold);">${recipientName}</strong>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 10px; color: var(--text-muted);">${escapeHTML(m.date)}</span>
+                    <button class="btn-copy" style="background: rgba(231,76,60,0.2); color: var(--neon-red); padding: 2px 6px; font-size: 10px;" onclick="deleteMessage('${m.id}')">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
                 </div>
-                <div style="color: #fff; margin: 4px 0;">${escapeHTML(m.text)}</div>
-                <div style="font-size: 9px; color: var(--text-muted);">${escapeHTML(m.date)}</div>
+                <div style="font-size: 12px; color: #fff; line-height: 1.4;">${escapeHTML(m.text)}</div>
               </div>
             `;
           }).join('');
         }
       }
-
-      // PARTIDAS ADM (COM BOTÃO DE EXCLUIR)
-      const adminMatchesList = document.getElementById('admin-matches-list');
-      const allGroups = getGroupedMatches();
-      if (state.matches.length === 0) {
-        adminMatchesList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-gamepad"></i><p>Nenhuma partida criada.</p></div>`;
-      } else {
-        adminMatchesList.innerHTML = allGroups.map((g, idx) => renderMatchGroupHTML(g, 'admin-' + idx, true)).join('');
-      }
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      fetchFromDatabase();
-      renderAll();
-
+    // Debounce no filtro de ID de partidas
+    document.addEventListener('DOMContentLoaded', () => {
       const filterInput = document.getElementById('filter-match-id');
       if (filterInput) {
         filterInput.addEventListener('input', () => {
@@ -2097,6 +2073,8 @@
           }, 300);
         });
       }
+
+      fetchFromDatabase();
     });
   </script>
 </body>
