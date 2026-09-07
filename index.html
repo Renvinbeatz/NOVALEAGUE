@@ -5,12 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>NØVA LEAGUE — Esportes Eletrônicos</title>
 
-  <!-- Ícones: favicon, ícone ao adicionar à tela inicial (iOS e Android) -->
-  <link rel="icon" type="image/png" href="logo.png">
-  <link rel="apple-touch-icon" href="logo.png">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0b0e14">
-  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -74,17 +68,27 @@
     .brand { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
     .brand-logo {
       width: 36px; height: 36px;
-      border-radius: 10px;
-      object-fit: cover;
+      background: linear-gradient(135deg, var(--neon-gold), var(--neon-purple));
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-heading); font-weight: 900; color: #0b0e14; font-size: 18px;
       box-shadow: 0 0 12px rgba(229, 184, 57, 0.3);
-      display: block;
     }
     .brand-title {
       font-family: var(--font-heading); font-size: 16px; font-weight: 900; letter-spacing: 1.2px;
       background: linear-gradient(90deg, #ffffff, var(--neon-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
+    .conn-status { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .conn-status.online { background: rgba(46,204,113,0.15); color: var(--neon-green); border: 1px solid var(--neon-green); }
+    .conn-status.offline { background: rgba(231,76,60,0.15); color: var(--neon-red); border: 1px solid var(--neon-red); }
 
     main.container { max-width: 900px; margin: 0 auto; padding: 16px; width: 100%; flex: 1; }
+
+    .setup-warning {
+      background: rgba(231,76,60,0.12); border: 1px solid var(--neon-red); border-radius: var(--radius-md);
+      padding: 14px; margin-bottom: 16px; font-size: 12px; line-height: 1.5; color: #fff;
+    }
+    .setup-warning strong { color: var(--neon-red); }
+    .setup-warning code { background: rgba(0,0,0,0.4); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 
     .card {
       background: var(--bg-card); border: 1px solid var(--border-color);
@@ -92,13 +96,13 @@
       overflow: hidden; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
     }
 
-    .stats-grid { 
-      display: grid; 
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); 
-      gap: 10px; 
-      margin-bottom: 20px; 
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
     }
-    
+
     .stat-card {
       background: linear-gradient(145deg, rgba(20, 26, 36, 0.95), rgba(28, 36, 50, 0.7));
       border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px;
@@ -219,6 +223,7 @@
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     }
     .btn-primary { width: 100%; padding: 12px; font-family: var(--font-sub); font-size: 15px; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-secondary { background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border-color); }
 
     .pagination-controls {
@@ -262,16 +267,16 @@
 
     .form-group { margin-bottom: 12px; }
     .form-group label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 600; }
-    
-    .form-control { 
-      width: 100%; 
-      background: rgba(0,0,0,0.4); 
-      border: 1px solid var(--border-color); 
-      padding: 10px; 
-      border-radius: var(--radius-sm); 
-      color: #fff; 
-      outline: none; 
-      font-size: 15px; 
+
+    .form-control {
+      width: 100%;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border-color);
+      padding: 10px;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      outline: none;
+      font-size: 15px;
     }
     .form-control:focus { border-color: var(--neon-gold); }
 
@@ -320,6 +325,14 @@
       padding: 4px 6px; border-radius: 6px; font-size: 11px; outline: none;
     }
 
+    .activation-box {
+      display: flex; align-items: center; gap: 6px; font-size: 11px;
+    }
+    .activation-code-val {
+      font-family: 'Rajdhani', monospace; font-weight: 700; letter-spacing: 1px;
+      color: var(--neon-gold); background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;
+    }
+
     .hidden { display: none !important; }
 
     @media (max-width: 480px) {
@@ -338,21 +351,30 @@
 
   <header>
     <div class="brand" onclick="handleSecretAdminTrigger()">
-      <img src="logo.png" alt="NØVA LEAGUE" class="brand-logo">
+      <div class="brand-logo">N</div>
       <div class="brand-title">NØVA LEAGUE</div>
     </div>
+    <span id="conn-status-badge" class="conn-status offline">CONECTANDO...</span>
   </header>
 
   <div class="toast-container" id="toast-container"></div>
 
   <main class="container">
 
+    <div id="setup-warning-box" class="setup-warning hidden">
+      <strong>⚠️ Banco de dados não configurado.</strong><br>
+      Preencha <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> no início do
+      <code>&lt;script&gt;</code> deste arquivo com as credenciais do seu projeto Supabase
+      (Project Settings → API) e rode o <code>supabase_schema.sql</code> no SQL Editor do
+      projeto. Sem isso, os dados ficam presos só neste navegador e não chegam pros jogadores.
+    </div>
+
     <section id="view-home">
       <div id="player-logged-out-view" class="card" style="text-align: center; padding: 24px 16px;">
         <i class="fa-solid fa-user-lock" style="font-size: 36px; color: var(--neon-gold); margin-bottom: 10px;"></i>
         <h2 style="font-family: var(--font-heading); font-size: 16px; margin-bottom: 6px;">ÁREA RESTRITA AO JOGADOR</h2>
-        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Entre com seu ID e Senha ou ative seu ID pré-cadastrado.</p>
-        <button class="btn-primary" onclick="openModal('modal-player-auth')"><i class="fa-solid fa-right-to-bracket"></i> ENTRAR / CRIAR SENHA</button>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Entre com seu ID e Senha ou ative seu ID pré-cadastrado com o código enviado pelo ADM.</p>
+        <button class="btn-primary" onclick="openModal('modal-player-auth')"><i class="fa-solid fa-right-to-bracket"></i> ENTRAR / ATIVAR CONTA</button>
       </div>
 
       <div id="player-logged-in-view" class="hidden">
@@ -405,7 +427,7 @@
         <input type="number" id="filter-match-id" class="form-control" placeholder="Filtrar por ID do Jogador (Ex: 12345)">
       </div>
       <div id="full-matches-list"></div>
-      
+
       <div class="pagination-controls" id="matches-pagination">
         <button class="btn-secondary" id="btn-prev-page" onclick="changeMatchPage(-1)"><i class="fa-solid fa-chevron-left"></i> Anterior</button>
         <span style="font-size: 12px; color: var(--text-muted);" id="page-indicator">Página 1</span>
@@ -428,13 +450,6 @@
       <div class="section-header">
         <div class="section-title" style="color: var(--neon-gold);"><i class="fa-solid fa-sliders"></i> PAINEL ADM</div>
         <button class="btn-copy" style="background: rgba(231, 76, 60, 0.2); color: var(--neon-red);" onclick="adminLogout()">SAIR ADM</button>
-      </div>
-
-      <div id="admin-db-warning" class="alert-card warning2 hidden">
-        <i class="fa-solid fa-database" style="font-size: 18px;"></i>
-        <div>
-          <strong>Banco de dados NÃO conectado!</strong> O site está salvando tudo só neste navegador (localStorage). Nenhum jogador em outro celular vai ver os cadastros, partidas, avisos ou cupons que você criar agora. Configure o Supabase (SUPABASE_URL / SUPABASE_ANON_KEY no código) para os dados ficarem visíveis pra todo mundo.
-        </div>
       </div>
 
       <div class="stats-grid">
@@ -483,12 +498,16 @@
             <button class="btn-copy" onclick="openModal('modal-add-player')">+ ADICIONAR ID</button>
           </div>
         </div>
+        <p style="font-size: 10px; color: var(--text-muted); margin-bottom: 10px;">
+          <i class="fa-solid fa-circle-info"></i> Ao cadastrar um ID, um código de ativação de 6 caracteres é gerado.
+          Repasse esse código no privado pro jogador — é com ele que a pessoa cria a própria senha.
+        </p>
         <div class="table-responsive">
           <table class="responsive-table">
             <thead>
               <tr>
                 <th>Nick / ID</th>
-                <th>Senha</th>
+                <th>Senha / Código</th>
                 <th>Status da Conta</th>
                 <th>Acumulado</th>
               </tr>
@@ -562,7 +581,7 @@
       </div>
 
       <div style="border-top: 1px dashed var(--border-color); padding-top: 12px; margin-top: 12px; text-align: center;">
-        <a href="https://wa.me/5500000000000?text=Olá,%20preciso%20de%20suporte%20na%20NØVA%20LEAGUE!" target="_blank" rel="noopener noreferrer" class="btn-primary" style="background: #25D366; color: #fff; text-decoration: none;">
+        <a href="https://wa.me/5500000000000?text=Olá,%20preciso%20de%20suporte%20na%20NØVA%20LEAGUE!" target="_blank" class="btn-primary" style="background: #25D366; color: #fff; text-decoration: none;">
           <i class="fa-brands fa-whatsapp" style="font-size: 16px;"></i> Falar no WhatsApp
         </a>
       </div>
@@ -578,7 +597,7 @@
 
       <div class="auth-tabs">
         <button class="auth-tab-btn active" id="tab-btn-login" onclick="switchPlayerAuthTab('login')">ENTRAR</button>
-        <button class="auth-tab-btn" id="tab-btn-register" onclick="switchPlayerAuthTab('register')">CRIAR SENHA</button>
+        <button class="auth-tab-btn" id="tab-btn-register" onclick="switchPlayerAuthTab('register')">ATIVAR CONTA</button>
       </div>
 
       <form id="form-player-login" onsubmit="event.preventDefault(); handlePlayerLogin();">
@@ -599,10 +618,14 @@
           <input type="number" id="player-reg-id" class="form-control" placeholder="Digite o ID cadastrado pelo ADM" required>
         </div>
         <div class="form-group">
-          <label>CRIE UMA NOVA SENHA</label>
-          <input type="password" id="player-reg-pass" class="form-control" placeholder="Crie uma senha de acesso" required minlength="4" maxlength="72">
+          <label>CÓDIGO DE ATIVAÇÃO</label>
+          <input type="text" id="player-reg-code" class="form-control" placeholder="Código de 6 caracteres enviado pelo ADM" maxlength="6" style="text-transform: uppercase;" required>
         </div>
-        <button type="submit" class="btn-primary">VERIFICAR & SALVAR</button>
+        <div class="form-group">
+          <label>CRIE UMA NOVA SENHA</label>
+          <input type="password" id="player-reg-pass" class="form-control" placeholder="Crie uma senha de acesso" required minlength="4">
+        </div>
+        <button type="submit" class="btn-primary">ATIVAR & SALVAR</button>
       </form>
     </div>
   </div>
@@ -615,8 +638,8 @@
       </div>
       <form onsubmit="event.preventDefault(); handleAdminAuth();">
         <div class="form-group">
-          <label>E-MAIL DO ADMINISTRADOR</label>
-          <input type="email" id="admin-user-input" class="form-control" placeholder="seuemail@exemplo.com" required autocomplete="off">
+          <label>E-MAIL</label>
+          <input type="email" id="admin-user-input" class="form-control" placeholder="Login de administrador" required autocomplete="off">
         </div>
         <div class="form-group">
           <label>SENHA</label>
@@ -797,27 +820,18 @@
   </nav>
 
   <script>
-    // ⚠️ IMPORTANTE: troque os dois valores abaixo pelas credenciais do SEU projeto Supabase
-    // (Project Settings > API, no painel do Supabase). Enquanto estiverem com o texto
-    // placeholder, o site funciona só no localStorage de CADA navegador — ou seja,
-    // o que o ADM cadastra não aparece pros outros jogadores.
-    const SUPABASE_URL = 'https://iefsmifzahqxdoqdkvsx.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_UT3vk4ILNo8jIrC3PSUNkw_-I2JRhqZ';
+    // =========================================================
+    // 1) PREENCHA COM OS DADOS DO SEU PROJETO SUPABASE
+    //    (Project Settings > API no painel do Supabase)
+    // 2) Rode o arquivo supabase_schema.sql inteiro no SQL Editor
+    //    do seu projeto ANTES de preencher isso.
+    // =========================================================
+    const SUPABASE_URL = 'https://aqvyehkrbjttvdirtjzd.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxdnllaGtyYmp0dHZkaXJ0anpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3NTY5ODQsImV4cCI6MjEwNDMzMjk4NH0.910Vkg3EKBqy5vuDtIArhac4oArMqtFnPPaVI7RjzZ8';
 
-    // Checagem robusta: considera configurado só se parecer mesmo uma URL/chave reais,
-    // não apenas "diferente do texto placeholder" (evita falso-positivo por erro de digitação).
-    const SUPABASE_CONFIGURED = Boolean(
-      SUPABASE_URL && SUPABASE_URL.startsWith('https://') && SUPABASE_URL.includes('.supabase.co') &&
-      SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length > 20
-    );
-
-    const _supabase = SUPABASE_CONFIGURED
+    const _supabase = (SUPABASE_URL !== 'SUA_URL_SUPABASE_AQUI' && SUPABASE_ANON_KEY !== 'SUA_CHAVE_ANONIMA_AQUI')
       ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
       : null;
-
-    if (!SUPABASE_CONFIGURED) {
-      console.warn('[NØVA LEAGUE] Supabase NÃO configurado — usando localStorage local. Os dados cadastrados pelo ADM não serão vistos por outros jogadores até que SUPABASE_URL e SUPABASE_ANON_KEY sejam preenchidos com as credenciais reais do projeto.');
-    }
 
     const state = {
       isAdminAuthenticated: false,
@@ -827,11 +841,6 @@
       coupons: [],
       messages: []
     };
-
-    // Colunas de "jogadores" que qualquer visitante pode ler (nunca inclui
-    // password — essa fica bloqueada no banco, só as funções de login/
-    // cadastro conseguem tocar nela).
-    const PLAYER_COLUMNS = 'id, nick, gameId, status, kills, matchesCount, earnings, has_password, created_at';
 
     let adminClickCount = 0;
     let adminClickTimer = null;
@@ -849,25 +858,19 @@
         .replace(/'/g, "&#039;");
     }
 
-    function saveToLocalStorage() {
-      if (!_supabase) {
-        localStorage.setItem('nova_league_players', JSON.stringify(state.players));
-        localStorage.setItem('nova_league_matches', JSON.stringify(state.matches));
-        localStorage.setItem('nova_league_coupons', JSON.stringify(state.coupons));
-        localStorage.setItem('nova_league_messages', JSON.stringify(state.messages));
-      }
-    }
-
-    function loadFromLocalStorage() {
-      if (!_supabase) {
-        const p = localStorage.getItem('nova_league_players');
-        const m = localStorage.getItem('nova_league_matches');
-        const c = localStorage.getItem('nova_league_coupons');
-        const msg = localStorage.getItem('nova_league_messages');
-        if (p) state.players = JSON.parse(p);
-        if (m) state.matches = JSON.parse(m);
-        if (c) state.coupons = JSON.parse(c);
-        if (msg) state.messages = JSON.parse(msg);
+    // Sem o Supabase configurado, o site avisa isso claramente em vez de
+    // fingir que está tudo certo salvando só no localStorage do navegador.
+    function updateConnectionBadge() {
+      const badge = document.getElementById('conn-status-badge');
+      const warningBox = document.getElementById('setup-warning-box');
+      if (_supabase) {
+        badge.textContent = 'ONLINE';
+        badge.className = 'conn-status online';
+        warningBox.classList.add('hidden');
+      } else {
+        badge.textContent = 'NÃO CONFIGURADO';
+        badge.className = 'conn-status offline';
+        warningBox.classList.remove('hidden');
       }
     }
 
@@ -889,19 +892,16 @@
       }
     });
 
+    // Busca os dados COMPARTILHADOS do Supabase — é isso que garante que
+    // todo mundo (ADM e jogadores, em qualquer dispositivo) vê os mesmos dados.
     async function fetchFromDatabase() {
       if (!_supabase) {
-        loadFromLocalStorage();
         renderAll();
         return;
       }
 
-      // Nunca buscamos a coluna "password" aqui — o banco está configurado para nem
-      // permitir a leitura dela pela chave pública. Login/cadastro de senha acontecem
-      // via RPC (verify_player_password / register_player_password), que comparam a
-      // senha no servidor e nunca devolvem o valor pro navegador.
-      const { data: p } = await _supabase.from('jogadores')
-        .select(PLAYER_COLUMNS);
+      // jogadores: sempre via view pública (sem hash de senha nem código)
+      const { data: p } = await _supabase.from('public_jogadores').select('*');
       if (p) state.players = p;
 
       const { data: m } = await _supabase.from('partidas').select('*').order('created_at', { ascending: false });
@@ -913,26 +913,23 @@
       const { data: msg } = await _supabase.from('mensagens').select('*').order('created_at', { ascending: false });
       if (msg) state.messages = msg;
 
-      await restoreAdminSession();
+      // Se for admin autenticado, busca também os dados sensíveis
+      // (senha definida ou não, código de ativação) — só a RLS já bloqueia
+      // isso pra quem não é admin, mas evitamos até pedir se não precisa.
+      if (state.isAdminAuthenticated) {
+        await fetchAdminPlayerExtras();
+      }
+
       renderAll();
     }
 
-    // Se o ADM já tinha feito login antes (sessão do Supabase Auth persistida),
-    // restaura o acesso ao painel sem precisar logar de novo — mas sempre
-    // reconferindo se essa conta continua na tabela admin_users.
-    async function restoreAdminSession() {
+    async function fetchAdminPlayerExtras() {
       if (!_supabase) return;
-      const { data: { session } } = await _supabase.auth.getSession();
-      if (!session) {
-        state.isAdminAuthenticated = false;
-        return;
-      }
-      const { data: adminRow } = await _supabase
-        .from('admin_users')
-        .select('user_id')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-      state.isAdminAuthenticated = Boolean(adminRow);
+      const { data, error } = await _supabase.from('jogadores').select('id, activation_code');
+      if (error || !data) return;
+      const byId = {};
+      data.forEach(r => { byId[r.id] = r.activation_code; });
+      state.players.forEach(p => { p.activation_code = byId[p.id] || null; });
     }
 
     function switchPlayerAuthTab(tab) {
@@ -955,70 +952,84 @@
     }
 
     async function handlePlayerLogin() {
-      const inputId = document.getElementById('player-login-id').value.trim();
-      const inputPass = document.getElementById('player-login-pass').value.trim();
-
       if (!_supabase) {
-        showToast('Login requer conexão com o banco de dados.', 'danger');
+        showToast('Banco de dados não configurado ainda.', 'danger');
         return;
       }
 
-      // A senha nunca sai do servidor: essa função compara o hash internamente
-      // no Postgres e só devolve os dados do jogador se a senha bater.
-      const { data: player, error } = await _supabase
-        .rpc('verify_player_password', { p_game_id: inputId, p_password: inputPass })
-        .maybeSingle();
+      const inputId = document.getElementById('player-login-id').value.trim();
+      const inputPass = document.getElementById('player-login-pass').value.trim();
+
+      // A comparação de senha roda dentro do banco (função player_login),
+      // então o hash nunca trafega pro navegador.
+      const { data, error } = await _supabase.rpc('player_login', {
+        p_game_id: inputId,
+        p_password: inputPass
+      });
 
       if (error) {
         showToast('Erro ao tentar entrar. Tente novamente.', 'danger');
         return;
       }
 
-      if (!player) {
-        showToast('ID, senha incorreta, ou senha ainda não criada.', 'danger');
+      const result = data && data[0];
+      if (!result || result.error) {
+        showToast(result?.error || 'Não foi possível entrar.', 'danger');
         return;
       }
 
-      state.currentPlayer = player;
-      const localRef = state.players.find(p => String(p.id) === String(player.id));
-      if (localRef) Object.assign(localRef, player);
+      state.currentPlayer = {
+        id: result.id,
+        nick: result.nick,
+        gameId: result.gameId,
+        status: result.status,
+        kills: result.kills,
+        matchesCount: result.matchesCount,
+        earnings: result.earnings
+      };
 
       closeModal('modal-player-auth');
-      showToast(`Bem-vindo de volta, ${escapeHTML(player.nick)}!`, 'success');
-      renderAll();
+      showToast(`Bem-vindo de volta, ${escapeHTML(state.currentPlayer.nick)}!`, 'success');
+      await fetchFromDatabase();
     }
 
     async function handlePlayerRegister() {
+      if (!_supabase) {
+        showToast('Banco de dados não configurado ainda.', 'danger');
+        return;
+      }
+
       const inputId = document.getElementById('player-reg-id').value.trim();
+      const code = document.getElementById('player-reg-code').value.trim();
       const newPass = document.getElementById('player-reg-pass').value.trim();
 
-      if (!_supabase) {
-        showToast('Cadastro de senha requer conexão com o banco de dados.', 'danger');
+      const { data, error } = await _supabase.rpc('player_register', {
+        p_game_id: inputId,
+        p_activation_code: code,
+        p_new_password: newPass
+      });
+
+      if (error) {
+        showToast('Erro ao ativar a conta. Tente novamente.', 'danger');
         return;
       }
 
-      // Só cria a senha se o ID existir e ainda não tiver senha — tudo
-      // validado e gravado (com hash) dentro do banco, nunca em texto puro.
-      const { data: player, error } = await _supabase
-        .rpc('register_player_password', { p_game_id: inputId, p_password: newPass })
-        .maybeSingle();
-
-      if (error || !player) {
-        showToast('❌ ID inválido, ou este ID já possui senha cadastrada.', 'danger');
+      const result = data && data[0];
+      if (!result || result.error) {
+        showToast(result?.error || 'Não foi possível ativar a conta.', 'danger');
         return;
       }
 
-      state.currentPlayer = player;
-      const localRef = state.players.find(p => String(p.id) === String(player.id));
-      if (localRef) Object.assign(localRef, player);
+      state.currentPlayer = { id: result.id, nick: result.nick, gameId: result.gameId, status: 'normal', kills: 0, matchesCount: 0, earnings: 0 };
 
       closeModal('modal-player-auth');
-      showToast(`✓ ID Válido! Senha criada para ${escapeHTML(player.nick)}!`, 'success');
+      showToast(`✓ Conta ativada para ${escapeHTML(result.nick)}!`, 'success');
 
       document.getElementById('player-reg-id').value = '';
+      document.getElementById('player-reg-code').value = '';
       document.getElementById('player-reg-pass').value = '';
 
-      renderAll();
+      await fetchFromDatabase();
     }
 
     function playerLogout() {
@@ -1027,33 +1038,34 @@
       renderAll();
     }
 
+    // Login de ADM via Supabase Auth de verdade — nenhuma senha fica
+    // escrita no HTML público. O e-mail/senha são criados direto no
+    // painel do Supabase (Authentication > Users).
     async function handleAdminAuth() {
-      const user = document.getElementById('admin-user-input').value.trim();
-      const pass = document.getElementById('admin-pass-input').value.trim();
-
       if (!_supabase) {
-        showToast('Login de ADM requer conexão com o banco de dados.', 'danger');
+        showToast('Banco de dados não configurado ainda.', 'danger');
         return;
       }
 
-      // Login de verdade pelo Supabase Auth — nenhuma senha de admin fica
-      // gravada no código-fonte do site.
-      const { data, error } = await _supabase.auth.signInWithPassword({ email: user, password: pass });
+      const email = document.getElementById('admin-user-input').value.trim();
+      const pass = document.getElementById('admin-pass-input').value.trim();
 
-      if (error || !data.session) {
+      const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+
+      if (error || !data?.user) {
         showToast('Credenciais de ADM inválidas!', 'danger');
         return;
       }
 
-      const { data: adminRow } = await _supabase
+      const { data: adminCheck } = await _supabase
         .from('admin_users')
-        .select('user_id')
+        .select('role')
         .eq('user_id', data.user.id)
         .maybeSingle();
 
-      if (!adminRow) {
+      if (!adminCheck) {
         await _supabase.auth.signOut();
-        showToast('Esta conta não tem permissão de administrador.', 'danger');
+        showToast('Este login não tem permissão de administrador.', 'danger');
         return;
       }
 
@@ -1061,12 +1073,13 @@
       closeModal('modal-admin-auth');
       showToast('Autenticado como Administrador!', 'success');
       openAdminPanel();
-      renderAll();
+      await fetchFromDatabase();
     }
 
     async function adminLogout() {
-      state.isAdminAuthenticated = false;
       if (_supabase) await _supabase.auth.signOut();
+      state.isAdminAuthenticated = false;
+      state.players.forEach(p => { delete p.activation_code; });
       showToast('Sessão ADM encerrada.');
       switchTab('view-home');
     }
@@ -1077,11 +1090,6 @@
         return;
       }
       switchTab('view-admin');
-
-      const dbWarning = document.getElementById('admin-db-warning');
-      if (dbWarning) {
-        dbWarning.classList.toggle('hidden', SUPABASE_CONFIGURED);
-      }
     }
 
     function switchTab(tabId) {
@@ -1121,17 +1129,19 @@
     function openModal(id) { document.getElementById(id).classList.add('active'); }
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-    function showToast(msg, type = 'success') {
+    function showToast(msg, type = 'success', durationMs = 3000) {
       const container = document.getElementById('toast-container');
       const toast = document.createElement('div');
       toast.className = 'toast';
       const color = type === 'danger' ? 'var(--neon-red)' : 'var(--neon-gold)';
       toast.innerHTML = `<i class="fa-solid fa-circle-info" style="color: ${color}"></i> <span>${msg}</span>`;
       container.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
+      setTimeout(() => toast.remove(), durationMs);
     }
 
     async function handleAddPlayer() {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
+
       const nick = document.getElementById('new-player-nick').value.trim();
       const gameId = document.getElementById('new-player-id').value.trim();
 
@@ -1140,33 +1150,32 @@
         return;
       }
 
+      const { data: codeData } = await _supabase.rpc('generate_activation_code');
+      const activationCode = codeData || Math.random().toString(36).substring(2, 8).toUpperCase();
+
       const newPlayer = {
         nick: nick,
         gameId: gameId,
+        activation_code: activationCode,
         status: 'normal',
         kills: 0,
         matchesCount: 0,
         earnings: 0.0
       };
 
-      if (_supabase) {
-        const { data, error } = await _supabase.from('jogadores').insert([newPlayer]).select(PLAYER_COLUMNS);
-        if (error) { showToast('Erro ao gravar jogador no banco de dados.', 'danger'); return; }
-        if (data) state.players.push(data[0]);
-      } else {
-        newPlayer.id = Date.now();
-        state.players.push(newPlayer);
-      }
+      const { error } = await _supabase.from('jogadores').insert([newPlayer]);
+      if (error) { showToast('Erro ao gravar jogador no banco de dados.', 'danger'); return; }
 
-      saveToLocalStorage();
       closeModal('modal-add-player');
       document.getElementById('new-player-nick').value = '';
       document.getElementById('new-player-id').value = '';
-      showToast('✓ ID registrado no servidor com sucesso!');
-      renderAll();
+      showToast(`✓ ID registrado! Código de ativação: ${activationCode} (repasse no privado)`, 'success', 8000);
+      await fetchFromDatabase();
     }
 
     async function handleBulkPlayersImport() {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
+
       const rawText = document.getElementById('bulk-players-input').value.trim();
 
       if (!rawText) {
@@ -1198,47 +1207,49 @@
             continue;
           }
 
-          const newPlayer = {
+          playersToInsert.push({
             nick: nick,
             gameId: gameId,
+            activation_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
             status: 'normal',
             kills: 0,
             matchesCount: 0,
             earnings: 0.0
-          };
-
-          playersToInsert.push(newPlayer);
+          });
           addedCount++;
         }
       }
 
       if (playersToInsert.length > 0) {
-        if (_supabase) {
-          const { data, error } = await _supabase.from('jogadores').insert(playersToInsert).select(PLAYER_COLUMNS);
-          if (error) {
-            showToast('Erro ao cadastrar jogadores no banco de dados.', 'danger');
-            return;
-          }
-          if (data) state.players.push(...data);
-        } else {
-          playersToInsert.forEach((p, idx) => { p.id = Date.now() + idx; });
-          state.players.push(...playersToInsert);
+        const { error } = await _supabase.from('jogadores').insert(playersToInsert);
+        if (error) {
+          showToast('Erro ao cadastrar jogadores no banco de dados.', 'danger');
+          return;
         }
 
-        saveToLocalStorage();
         closeModal('modal-bulk-players-import');
         document.getElementById('bulk-players-input').value = '';
 
-        let msg = `✓ ${addedCount} novos jogadores cadastrados!`;
+        let msg = `✓ ${addedCount} novos jogadores cadastrados! Veja os códigos de ativação na tabela.`;
         if (skippedCount > 0) msg += ` (${skippedCount} ignorados por já existirem)`;
-        showToast(msg, 'success');
-        renderAll();
+        showToast(msg, 'success', 6000);
+        await fetchFromDatabase();
       } else {
         showToast(skippedCount > 0 ? 'Todos os IDs informados já estão cadastrados!' : 'Nenhum formato válido encontrado. Use: ID, NICK', 'danger');
       }
     }
 
+    async function copyActivationCode(code, btn) {
+      navigator.clipboard.writeText(code);
+      const original = btn.innerHTML;
+      btn.innerHTML = '✓';
+      showToast(`Código ${code} copiado!`);
+      setTimeout(() => { btn.innerHTML = original; }, 1500);
+    }
+
     async function updatePlayerStatus(playerId, newStatus) {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
+
       if (newStatus === 'banned') {
         const confirmDelete = confirm('⚠️ ATENÇÃO: Deseja realmente dar BAN PERMANENTE? Esta ação exclui o jogador do banco.');
         if (!confirmDelete) {
@@ -1246,30 +1257,22 @@
           return;
         }
 
-        if (_supabase) {
-          await _supabase.from('jogadores').delete().eq('id', playerId);
-        }
-        state.players = state.players.filter(p => String(p.id) !== String(playerId));
+        await _supabase.from('jogadores').delete().eq('id', playerId);
 
         if (state.currentPlayer && String(state.currentPlayer.id) === String(playerId)) {
           state.currentPlayer = null;
         }
 
-        saveToLocalStorage();
         showToast('🔴 Jogador banido e removido!', 'danger');
-        renderAll();
+        await fetchFromDatabase();
         return;
       }
 
       const player = state.players.find(p => String(p.id) === String(playerId));
       if (player) {
-        player.status = newStatus;
-        if (_supabase) {
-          await _supabase.from('jogadores').update({ status: newStatus }).eq('id', playerId);
-        }
-        saveToLocalStorage();
+        await _supabase.from('jogadores').update({ status: newStatus }).eq('id', playerId);
         showToast(`Status de ${escapeHTML(player.nick)} atualizado!`);
-        renderAll();
+        await fetchFromDatabase();
       }
     }
 
@@ -1291,7 +1294,7 @@
     function addPlayerRowToMatch() {
       const container = document.getElementById('match-players-container');
       const rowId = 'player-row-' + Date.now() + Math.random().toString(36).substring(2, 5);
-      
+
       const options = state.players.map(p => `<option value="${p.id}">${escapeHTML(p.nick)} (ID: ${escapeHTML(p.gameId)})</option>`).join('');
 
       const row = document.createElement('div');
@@ -1331,6 +1334,8 @@
     }
 
     async function handleAddMatch() {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
+
       const matchNum = document.getElementById('match-number').value.trim();
       const datetimeInput = document.getElementById('match-datetime').value;
       const top1Bonus = parseFloat(document.getElementById('match-top1-bonus').value) || 0;
@@ -1358,6 +1363,9 @@
         formattedDate = dtObj.toLocaleDateString('pt-BR') + ' às ' + dtObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       }
 
+      const matchesToInsert = [];
+      const playerUpdates = [];
+
       for (const row of rows) {
         const playerId = row.querySelector('.match-p-id').value;
         const kills = parseInt(row.querySelector('.match-p-kills').value) || 0;
@@ -1370,49 +1378,46 @@
 
         const totalEarned = (kills * killVal) + bonus;
         const player = state.players.find(p => String(p.id) === String(playerId));
+        if (!player) continue;
 
-        if (player) {
-          const newKills = player.kills + kills;
-          const newMatches = player.matchesCount + 1;
-          const newEarnings = player.earnings + totalEarned;
+        matchesToInsert.push({
+          number: matchNum,
+          playerId: player.id,
+          playerGameId: player.gameId,
+          playerNick: player.nick,
+          date: formattedDate,
+          kills: kills,
+          pos: pos,
+          total: totalEarned
+        });
 
-          const newMatchRecord = {
-            number: matchNum,
-            playerId: player.id,
-            playerGameId: player.gameId,
-            playerNick: player.nick,
-            date: formattedDate,
-            kills: kills,
-            pos: pos,
-            total: totalEarned
-          };
-
-          if (_supabase) {
-            const { data } = await _supabase.from('partidas').insert([newMatchRecord]).select();
-            if (data) newMatchRecord.id = data[0].id;
-            await _supabase.from('jogadores').update({
-              kills: newKills,
-              matchesCount: newMatches,
-              earnings: newEarnings
-            }).eq('id', player.id);
-          } else {
-            newMatchRecord.id = Date.now() + Math.random();
-          }
-
-          player.kills = newKills;
-          player.matchesCount = newMatches;
-          player.earnings = newEarnings;
-          state.matches.unshift(newMatchRecord);
-        }
+        playerUpdates.push({
+          id: player.id,
+          kills: player.kills + kills,
+          matchesCount: player.matchesCount + 1,
+          earnings: parseFloat((player.earnings + totalEarned).toFixed(2))
+        });
       }
 
-      saveToLocalStorage();
+      const { error: matchError } = await _supabase.from('partidas').insert(matchesToInsert);
+      if (matchError) { showToast('Erro ao salvar a partida.', 'danger'); return; }
+
+      for (const u of playerUpdates) {
+        await _supabase.from('jogadores').update({
+          kills: u.kills,
+          matchesCount: u.matchesCount,
+          earnings: u.earnings
+        }).eq('id', u.id);
+      }
+
       closeModal('modal-add-match');
       showToast(`✓ Partida "${escapeHTML(matchNum)}" registrada!`);
-      renderAll();
+      await fetchFromDatabase();
     }
 
     async function handleBulkImport() {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
+
       const matchNum = document.getElementById('bulk-match-number').value.trim();
       const datetimeInput = document.getElementById('bulk-match-datetime').value;
       const rawText = document.getElementById('bulk-data-input').value.trim();
@@ -1433,6 +1438,7 @@
 
       const lines = rawText.split('\n');
       const matchesToInsert = [];
+      const playerUpdates = [];
       let importedCount = 0;
 
       for (let line of lines) {
@@ -1452,8 +1458,8 @@
           else if (pos === 2) bonusPos = top2Val;
 
           const totalEarned = (kills * killVal) + bonusPos;
-          
-          const newMatchRecord = {
+
+          matchesToInsert.push({
             number: matchNum,
             playerId: player.id,
             playerGameId: player.gameId,
@@ -1462,40 +1468,35 @@
             kills: kills,
             pos: pos,
             total: totalEarned
-          };
+          });
 
-          matchesToInsert.push(newMatchRecord);
-
-          player.kills += kills;
-          player.matchesCount += 1;
-          player.earnings += totalEarned;
-
-          if (_supabase) {
-            await _supabase.from('jogadores').update({
-              kills: player.kills,
-              matchesCount: player.matchesCount,
-              earnings: player.earnings
-            }).eq('id', player.id);
-          }
+          playerUpdates.push({
+            id: player.id,
+            kills: player.kills + kills,
+            matchesCount: player.matchesCount + 1,
+            earnings: parseFloat((player.earnings + totalEarned).toFixed(2))
+          });
 
           importedCount++;
         }
       }
 
       if (matchesToInsert.length > 0) {
-        if (_supabase) {
-          const { data } = await _supabase.from('partidas').insert(matchesToInsert).select();
-          if (data) state.matches.unshift(...data);
-        } else {
-          matchesToInsert.forEach(m => m.id = Date.now() + Math.random());
-          state.matches.unshift(...matchesToInsert);
+        const { error } = await _supabase.from('partidas').insert(matchesToInsert);
+        if (error) { showToast('Erro ao importar partidas.', 'danger'); return; }
+
+        for (const u of playerUpdates) {
+          await _supabase.from('jogadores').update({
+            kills: u.kills,
+            matchesCount: u.matchesCount,
+            earnings: u.earnings
+          }).eq('id', u.id);
         }
 
-        saveToLocalStorage();
         closeModal('modal-bulk-import');
         document.getElementById('bulk-data-input').value = '';
         showToast(`✓ ${importedCount} resultados importados!`);
-        renderAll();
+        await fetchFromDatabase();
       } else {
         showToast('Nenhum ID correspondente encontrado.', 'danger');
       }
@@ -1503,6 +1504,7 @@
 
     // REMOVER PARTIDA PELO ADM
     async function deleteMatchGroup(groupKey) {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
       if (!confirm('⚠️ Deseja realmente excluir esta partida? Os pontos e prêmios acumulados pelos jogadores nesta partida serão revertidos.')) return;
 
       const matchesToDelete = state.matches.filter(m => (m.number + '_' + (m.date || 'sem_data')) === groupKey);
@@ -1510,65 +1512,52 @@
       for (const m of matchesToDelete) {
         const player = state.players.find(p => String(p.id) === String(m.playerId) || String(p.gameId) === String(m.playerGameId));
         if (player) {
-          player.kills = Math.max(0, player.kills - (m.kills || 0));
-          player.matchesCount = Math.max(0, player.matchesCount - 1);
-          player.earnings = Math.max(0, parseFloat((player.earnings - (parseFloat(m.total) || 0)).toFixed(2)));
+          const newKills = Math.max(0, player.kills - (m.kills || 0));
+          const newMatches = Math.max(0, player.matchesCount - 1);
+          const newEarnings = Math.max(0, parseFloat((player.earnings - (parseFloat(m.total) || 0)).toFixed(2)));
 
-          if (_supabase) {
-            await _supabase.from('jogadores').update({
-              kills: player.kills,
-              matchesCount: player.matchesCount,
-              earnings: player.earnings
-            }).eq('id', player.id);
-          }
+          await _supabase.from('jogadores').update({
+            kills: newKills,
+            matchesCount: newMatches,
+            earnings: newEarnings
+          }).eq('id', player.id);
         }
 
-        if (_supabase && m.id) {
+        if (m.id) {
           await _supabase.from('partidas').delete().eq('id', m.id);
         }
       }
 
-      state.matches = state.matches.filter(m => (m.number + '_' + (m.date || 'sem_data')) !== groupKey);
-      saveToLocalStorage();
       showToast('Partida removida com sucesso!', 'danger');
-      renderAll();
+      await fetchFromDatabase();
     }
 
     async function handleAddCoupon() {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
+
       const code = document.getElementById('coupon-code').value.trim();
       const discount = document.getElementById('coupon-discount').value.trim();
       const valid = document.getElementById('coupon-valid').value.trim();
 
-      const newCoupon = { code, discount, valid };
+      const { error } = await _supabase.from('cupons').insert([{ code, discount, valid }]);
+      if (error) { showToast('Erro ao criar cupom.', 'danger'); return; }
 
-      if (_supabase) {
-        const { data } = await _supabase.from('cupons').insert([newCoupon]).select();
-        if (data) state.coupons.push(data[0]);
-      } else {
-        newCoupon.id = Date.now();
-        state.coupons.push(newCoupon);
-      }
-
-      saveToLocalStorage();
       closeModal('modal-add-coupon');
       document.getElementById('coupon-code').value = '';
       document.getElementById('coupon-discount').value = '';
       document.getElementById('coupon-valid').value = '';
       showToast('✓ Cupom adicionado!');
-      renderAll();
+      await fetchFromDatabase();
     }
 
     // REMOVER CUPOM PELO ADM
     async function deleteCoupon(couponId) {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
       if (!confirm('Deseja realmente remover este cupom?')) return;
 
-      if (_supabase) {
-        await _supabase.from('cupons').delete().eq('id', couponId);
-      }
-      state.coupons = state.coupons.filter(c => String(c.id) !== String(couponId));
-      saveToLocalStorage();
+      await _supabase.from('cupons').delete().eq('id', couponId);
       showToast('Cupom removido com sucesso!', 'danger');
-      renderAll();
+      await fetchFromDatabase();
     }
 
     function copyCoupon(code, btn) {
@@ -1579,6 +1568,8 @@
     }
 
     async function handleSendMessage() {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
+
       const targetId = document.getElementById('msg-recipient').value;
       const text = document.getElementById('msg-text').value.trim();
 
@@ -1589,58 +1580,38 @@
 
       const currentDate = new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-      const newMsg = {
-        id: Date.now(),
+      const { error } = await _supabase.from('mensagens').insert([{
         recipientId: targetId,
         text: text,
         date: currentDate,
         readBy: []
-      };
+      }]);
 
-      if (_supabase) {
-        const { data } = await _supabase.from('mensagens').insert([newMsg]).select();
-        if (data) state.messages.unshift(data[0]);
-      } else {
-        state.messages.unshift(newMsg);
-      }
+      if (error) { showToast('Erro ao enviar comunicado.', 'danger'); return; }
 
-      saveToLocalStorage();
       document.getElementById('msg-text').value = '';
       showToast('📢 Comunicado enviado com sucesso!');
-      renderAll();
+      await fetchFromDatabase();
     }
 
     async function deleteMessage(msgId) {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
       if (!confirm('Deseja excluir este comunicado?')) return;
 
-      if (_supabase) {
-        await _supabase.from('mensagens').delete().eq('id', msgId);
-      }
-
-      state.messages = state.messages.filter(m => String(m.id) !== String(msgId));
-      saveToLocalStorage();
+      await _supabase.from('mensagens').delete().eq('id', msgId);
       showToast('Comunicado removido.');
-      renderAll();
+      await fetchFromDatabase();
     }
 
     async function markMessageAsRead(msgId) {
-      if (!state.currentPlayer) return;
+      if (!state.currentPlayer || !_supabase) return;
 
-      const msg = state.messages.find(m => String(m.id) === String(msgId));
-      if (msg && (!msg.readBy || !msg.readBy.includes(state.currentPlayer.id))) {
-        if (_supabase) {
-          // RPC estreita: só permite marcar a própria leitura, não editar a mensagem em si.
-          const { error } = await _supabase.rpc('mark_message_read', {
-            p_message_id: msg.id,
-            p_player_id: state.currentPlayer.id
-          });
-          if (error) return;
-        }
-        if (!msg.readBy) msg.readBy = [];
-        msg.readBy.push(state.currentPlayer.id);
-        saveToLocalStorage();
-        renderAll();
-      }
+      await _supabase.rpc('mark_message_read', {
+        p_message_id: msgId,
+        p_player_id: state.currentPlayer.id
+      });
+
+      await fetchFromDatabase();
     }
 
     function toggleMatchGroup(id) {
@@ -1657,7 +1628,7 @@
 
     function getGroupedMatches(filterGameId = null) {
       const groups = {};
-      
+
       let sourceMatches = state.matches;
       if (filterGameId) {
         sourceMatches = state.matches.filter(m => String(m.playerGameId).includes(String(filterGameId)));
@@ -1742,7 +1713,7 @@
               <i class="fa-solid fa-chevron-down" id="icon-${accordionId}" style="color: var(--neon-gold);"></i>
             </div>
           </button>
-          
+
           <div id="${accordionId}" class="match-details-box hidden">
             ${meHighlightedHTML}
             <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-bottom: 6px;">
@@ -1758,7 +1729,7 @@
       const fullMatchesList = document.getElementById('full-matches-list');
       const filterId = document.getElementById('filter-match-id')?.value.trim();
       const allGroups = getGroupedMatches(filterId);
-      
+
       const totalPages = Math.ceil(allGroups.length / MATCHES_PER_PAGE) || 1;
       if (currentMatchPage > totalPages) currentMatchPage = totalPages;
       if (currentMatchPage < 1) currentMatchPage = 1;
@@ -1783,6 +1754,8 @@
     }
 
     function renderAll() {
+      updateConnectionBadge();
+
       const loggedOutView = document.getElementById('player-logged-out-view');
       const loggedInView = document.getElementById('player-logged-in-view');
 
@@ -1888,7 +1861,7 @@
           `;
         }
 
-        const myMessages = state.messages.filter(m => 
+        const myMessages = state.messages.filter(m =>
           m.recipientId === 'all' || String(m.recipientId) === String(state.currentPlayer.id)
         );
 
@@ -1922,7 +1895,7 @@
             <h3 style="font-family: var(--font-heading); font-size: 16px;">${escapeHTML(state.currentPlayer.nick)}</h3>
             <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px;">ID Free Fire: ${escapeHTML(state.currentPlayer.gameId)}</p>
             <div style="margin-bottom: 14px;">${statusBadgeHTML}</div>
-            
+
             ${warningBoxHTML}
 
             <button class="btn-primary" onclick="openModal('modal-support')">
@@ -1939,7 +1912,7 @@
         profileContent.innerHTML = `
           <div class="empty-state">
             <i class="fa-solid fa-user-lock"></i>
-            <p>Faça login ou crie sua senha com seu ID cadastrado.</p>
+            <p>Faça login ou ative sua conta com o ID e o código enviados pelo ADM.</p>
           </div>
         `;
       }
@@ -1952,7 +1925,7 @@
         navBadge.classList.add('hidden');
       }
 
-      // PAINEL ADM - METRICAS
+      // PAINEL ADM - MÉTRICAS
       const totalEarnings = state.players.reduce((acc, p) => acc + parseFloat(p.earnings || 0), 0);
       document.getElementById('admin-count-players').innerText = state.players.length;
       document.getElementById('admin-count-matches').innerText = getGroupedMatches().length;
@@ -1966,17 +1939,18 @@
       } else {
         playersTable.innerHTML = state.players.map(p => {
           const st = p.status || 'normal';
+          const passCell = p.has_password
+            ? '<span class="badge badge-paid">SENHA CRIADA</span>'
+            : (p.activation_code
+                ? `<div class="activation-box"><span class="activation-code-val">${escapeHTML(p.activation_code)}</span><button class="btn-icon" style="width:24px;height:24px;" onclick="copyActivationCode('${escapeHTML(p.activation_code)}', this)"><i class="fa-solid fa-copy" style="font-size:10px;"></i></button></div>`
+                : '<span class="badge badge-pending">PENDENTE</span>');
           return `
             <tr>
               <td>
                 <strong>${escapeHTML(p.nick)}</strong>
                 <div style="font-size: 10px; color: var(--text-muted);">ID: ${escapeHTML(p.gameId)}</div>
               </td>
-              <td>
-                ${p.has_password 
-                  ? '<span class="badge badge-paid">CRIADA</span>' 
-                  : '<span class="badge badge-pending">PENDENTE</span>'}
-              </td>
+              <td>${passCell}</td>
               <td>
                 <select class="status-select" onchange="updatePlayerStatus('${p.id}', this.value)">
                   <option value="normal" ${st === 'normal' ? 'selected' : ''}>🟢 Normal</option>
@@ -2015,7 +1989,7 @@
       // SELECT DE DESTINATÁRIOS
       const recipientSelect = document.getElementById('msg-recipient');
       if (recipientSelect) {
-        recipientSelect.innerHTML = `<option value="all">📢 Todos os Jogadores (Global)</option>` + 
+        recipientSelect.innerHTML = `<option value="all">📢 Todos os Jogadores (Global)</option>` +
           state.players.map(p => `<option value="${p.id}">👤 ${escapeHTML(p.nick)} (ID: ${escapeHTML(p.gameId)})</option>`).join('');
       }
 
@@ -2055,9 +2029,23 @@
       }
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      fetchFromDatabase();
-      renderAll();
+    window.addEventListener('DOMContentLoaded', async () => {
+      updateConnectionBadge();
+
+      // Se já existir uma sessão de ADM ativa (Supabase Auth), reconecta sozinho
+      if (_supabase) {
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (session) {
+          const { data: adminCheck } = await _supabase
+            .from('admin_users')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          if (adminCheck) state.isAdminAuthenticated = true;
+        }
+      }
+
+      await fetchFromDatabase();
 
       const filterInput = document.getElementById('filter-match-id');
       if (filterInput) {
