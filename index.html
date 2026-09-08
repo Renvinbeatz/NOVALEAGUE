@@ -826,6 +826,11 @@
       messages: []
     };
 
+    // Sessão do jogador "lembrada" no navegador. Guardamos só um token
+    // aleatório (nunca a senha) e o banco decide se ele ainda é válido —
+    // por padrão dura 30 dias e se renova sozinha enquanto a pessoa usa o site.
+    const PLAYER_SESSION_KEY = 'nova_league_player_session';
+
     let adminClickCount = 0;
     let adminClickTimer = null;
     let filterDebounceTimer = null;
@@ -956,6 +961,10 @@
         earnings: result.earnings
       };
 
+      if (result.session_token) {
+        localStorage.setItem(PLAYER_SESSION_KEY, result.session_token);
+      }
+
       closeModal('modal-player-auth');
       showToast(`Bem-vindo de volta, ${escapeHTML(state.currentPlayer.nick)}!`, 'success');
       await fetchFromDatabase();
@@ -988,6 +997,10 @@
 
       state.currentPlayer = { id: result.id, nick: result.nick, gameId: result.gameId, status: 'normal', kills: 0, matchesCount: 0, earnings: 0 };
 
+      if (result.session_token) {
+        localStorage.setItem(PLAYER_SESSION_KEY, result.session_token);
+      }
+
       closeModal('modal-player-auth');
       showToast(`✓ Conta ativada para ${escapeHTML(result.nick)}!`, 'success');
 
@@ -997,7 +1010,12 @@
       await fetchFromDatabase();
     }
 
-    function playerLogout() {
+    async function playerLogout() {
+      const token = localStorage.getItem(PLAYER_SESSION_KEY);
+      if (_supabase && token) {
+        await _supabase.rpc('player_session_logout', { p_token: token });
+      }
+      localStorage.removeItem(PLAYER_SESSION_KEY);
       state.currentPlayer = null;
       showToast('Sessão encerrada.');
       renderAll();
@@ -1944,6 +1962,28 @@
             .eq('user_id', session.user.id)
             .maybeSingle();
           if (adminCheck) state.isAdminAuthenticated = true;
+        }
+
+        // Se existir um token de sessão do jogador salvo, tenta reconectar.
+        // Se o token não existir mais ou tiver expirado (30 dias sem uso),
+        // limpa e volta pra tela de login normalmente.
+        const savedToken = localStorage.getItem(PLAYER_SESSION_KEY);
+        if (savedToken) {
+          const { data: sessionData } = await _supabase.rpc('player_session_login', { p_token: savedToken });
+          const sessionResult = sessionData && sessionData[0];
+          if (sessionResult && !sessionResult.error) {
+            state.currentPlayer = {
+              id: sessionResult.id,
+              nick: sessionResult.nick,
+              gameId: sessionResult.gameId,
+              status: sessionResult.status,
+              kills: sessionResult.kills,
+              matchesCount: sessionResult.matchesCount,
+              earnings: sessionResult.earnings
+            };
+          } else {
+            localStorage.removeItem(PLAYER_SESSION_KEY);
+          }
         }
       }
 
