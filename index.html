@@ -325,14 +325,6 @@
       padding: 4px 6px; border-radius: 6px; font-size: 11px; outline: none;
     }
 
-    .activation-box {
-      display: flex; align-items: center; gap: 6px; font-size: 11px;
-    }
-    .activation-code-val {
-      font-family: 'Rajdhani', monospace; font-weight: 700; letter-spacing: 1px;
-      color: var(--neon-gold); background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;
-    }
-
     .hidden { display: none !important; }
 
     @media (max-width: 480px) {
@@ -373,8 +365,8 @@
       <div id="player-logged-out-view" class="card" style="text-align: center; padding: 24px 16px;">
         <i class="fa-solid fa-user-lock" style="font-size: 36px; color: var(--neon-gold); margin-bottom: 10px;"></i>
         <h2 style="font-family: var(--font-heading); font-size: 16px; margin-bottom: 6px;">ÁREA RESTRITA AO JOGADOR</h2>
-        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Entre com seu ID e Senha ou ative seu ID pré-cadastrado com o código enviado pelo ADM.</p>
-        <button class="btn-primary" onclick="openModal('modal-player-auth')"><i class="fa-solid fa-right-to-bracket"></i> ENTRAR / ATIVAR CONTA</button>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">Entre com seu ID e Senha ou crie sua senha com o ID pré-cadastrado pelo ADM.</p>
+        <button class="btn-primary" onclick="openModal('modal-player-auth')"><i class="fa-solid fa-right-to-bracket"></i> ENTRAR / CRIAR SENHA</button>
       </div>
 
       <div id="player-logged-in-view" class="hidden">
@@ -498,16 +490,12 @@
             <button class="btn-copy" onclick="openModal('modal-add-player')">+ ADICIONAR ID</button>
           </div>
         </div>
-        <p style="font-size: 10px; color: var(--text-muted); margin-bottom: 10px;">
-          <i class="fa-solid fa-circle-info"></i> Ao cadastrar um ID, um código de ativação de 6 caracteres é gerado.
-          Repasse esse código no privado pro jogador — é com ele que a pessoa cria a própria senha.
-        </p>
         <div class="table-responsive">
           <table class="responsive-table">
             <thead>
               <tr>
                 <th>Nick / ID</th>
-                <th>Senha / Código</th>
+                <th>Senha</th>
                 <th>Status da Conta</th>
                 <th>Acumulado</th>
               </tr>
@@ -597,7 +585,7 @@
 
       <div class="auth-tabs">
         <button class="auth-tab-btn active" id="tab-btn-login" onclick="switchPlayerAuthTab('login')">ENTRAR</button>
-        <button class="auth-tab-btn" id="tab-btn-register" onclick="switchPlayerAuthTab('register')">ATIVAR CONTA</button>
+        <button class="auth-tab-btn" id="tab-btn-register" onclick="switchPlayerAuthTab('register')">CRIAR SENHA</button>
       </div>
 
       <form id="form-player-login" onsubmit="event.preventDefault(); handlePlayerLogin();">
@@ -618,14 +606,10 @@
           <input type="number" id="player-reg-id" class="form-control" placeholder="Digite o ID cadastrado pelo ADM" required>
         </div>
         <div class="form-group">
-          <label>CÓDIGO DE ATIVAÇÃO</label>
-          <input type="text" id="player-reg-code" class="form-control" placeholder="Código de 6 caracteres enviado pelo ADM" maxlength="6" style="text-transform: uppercase;" required>
-        </div>
-        <div class="form-group">
           <label>CRIE UMA NOVA SENHA</label>
           <input type="password" id="player-reg-pass" class="form-control" placeholder="Crie uma senha de acesso" required minlength="4">
         </div>
-        <button type="submit" class="btn-primary">ATIVAR & SALVAR</button>
+        <button type="submit" class="btn-primary">VERIFICAR & SALVAR</button>
       </form>
     </div>
   </div>
@@ -913,23 +897,7 @@
       const { data: msg } = await _supabase.from('mensagens').select('*').order('created_at', { ascending: false });
       if (msg) state.messages = msg;
 
-      // Se for admin autenticado, busca também os dados sensíveis
-      // (senha definida ou não, código de ativação) — só a RLS já bloqueia
-      // isso pra quem não é admin, mas evitamos até pedir se não precisa.
-      if (state.isAdminAuthenticated) {
-        await fetchAdminPlayerExtras();
-      }
-
       renderAll();
-    }
-
-    async function fetchAdminPlayerExtras() {
-      if (!_supabase) return;
-      const { data, error } = await _supabase.from('jogadores').select('id, activation_code');
-      if (error || !data) return;
-      const byId = {};
-      data.forEach(r => { byId[r.id] = r.activation_code; });
-      state.players.forEach(p => { p.activation_code = byId[p.id] || null; });
     }
 
     function switchPlayerAuthTab(tab) {
@@ -1000,12 +968,10 @@
       }
 
       const inputId = document.getElementById('player-reg-id').value.trim();
-      const code = document.getElementById('player-reg-code').value.trim();
       const newPass = document.getElementById('player-reg-pass').value.trim();
 
       const { data, error } = await _supabase.rpc('player_register', {
         p_game_id: inputId,
-        p_activation_code: code,
         p_new_password: newPass
       });
 
@@ -1026,7 +992,6 @@
       showToast(`✓ Conta ativada para ${escapeHTML(result.nick)}!`, 'success');
 
       document.getElementById('player-reg-id').value = '';
-      document.getElementById('player-reg-code').value = '';
       document.getElementById('player-reg-pass').value = '';
 
       await fetchFromDatabase();
@@ -1079,7 +1044,6 @@
     async function adminLogout() {
       if (_supabase) await _supabase.auth.signOut();
       state.isAdminAuthenticated = false;
-      state.players.forEach(p => { delete p.activation_code; });
       showToast('Sessão ADM encerrada.');
       switchTab('view-home');
     }
@@ -1150,13 +1114,9 @@
         return;
       }
 
-      const { data: codeData } = await _supabase.rpc('generate_activation_code');
-      const activationCode = codeData || Math.random().toString(36).substring(2, 8).toUpperCase();
-
       const newPlayer = {
         nick: nick,
         gameId: gameId,
-        activation_code: activationCode,
         status: 'normal',
         kills: 0,
         matchesCount: 0,
@@ -1169,7 +1129,7 @@
       closeModal('modal-add-player');
       document.getElementById('new-player-nick').value = '';
       document.getElementById('new-player-id').value = '';
-      showToast(`✓ ID registrado! Código de ativação: ${activationCode} (repasse no privado)`, 'success', 8000);
+      showToast('✓ ID registrado no servidor com sucesso!');
       await fetchFromDatabase();
     }
 
@@ -1210,7 +1170,6 @@
           playersToInsert.push({
             nick: nick,
             gameId: gameId,
-            activation_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
             status: 'normal',
             kills: 0,
             matchesCount: 0,
@@ -1230,21 +1189,13 @@
         closeModal('modal-bulk-players-import');
         document.getElementById('bulk-players-input').value = '';
 
-        let msg = `✓ ${addedCount} novos jogadores cadastrados! Veja os códigos de ativação na tabela.`;
+        let msg = `✓ ${addedCount} novos jogadores cadastrados!`;
         if (skippedCount > 0) msg += ` (${skippedCount} ignorados por já existirem)`;
         showToast(msg, 'success', 6000);
         await fetchFromDatabase();
       } else {
         showToast(skippedCount > 0 ? 'Todos os IDs informados já estão cadastrados!' : 'Nenhum formato válido encontrado. Use: ID, NICK', 'danger');
       }
-    }
-
-    async function copyActivationCode(code, btn) {
-      navigator.clipboard.writeText(code);
-      const original = btn.innerHTML;
-      btn.innerHTML = '✓';
-      showToast(`Código ${code} copiado!`);
-      setTimeout(() => { btn.innerHTML = original; }, 1500);
     }
 
     async function updatePlayerStatus(playerId, newStatus) {
@@ -1364,7 +1315,7 @@
       }
 
       const matchesToInsert = [];
-      const playerUpdates = [];
+      const rpcEntries = [];
 
       for (const row of rows) {
         const playerId = row.querySelector('.match-p-id').value;
@@ -1376,39 +1327,18 @@
         if (pos === 1) bonus = top1Bonus;
         else if (pos === 2) bonus = top2Bonus;
 
-        const totalEarned = (kills * killVal) + bonus;
         const player = state.players.find(p => String(p.id) === String(playerId));
         if (!player) continue;
 
-        matchesToInsert.push({
-          number: matchNum,
-          playerId: player.id,
-          playerGameId: player.gameId,
-          playerNick: player.nick,
-          date: formattedDate,
-          kills: kills,
-          pos: pos,
-          total: totalEarned
-        });
-
-        playerUpdates.push({
-          id: player.id,
-          kills: player.kills + kills,
-          matchesCount: player.matchesCount + 1,
-          earnings: parseFloat((player.earnings + totalEarned).toFixed(2))
-        });
+        rpcEntries.push({ playerId: player.id, kills, pos, killValue: killVal, bonus });
       }
 
-      const { error: matchError } = await _supabase.from('partidas').insert(matchesToInsert);
+      const { error: matchError } = await _supabase.rpc('add_match_with_players', {
+        p_match_number: matchNum,
+        p_match_date: formattedDate,
+        p_entries: rpcEntries
+      });
       if (matchError) { showToast('Erro ao salvar a partida.', 'danger'); return; }
-
-      for (const u of playerUpdates) {
-        await _supabase.from('jogadores').update({
-          kills: u.kills,
-          matchesCount: u.matchesCount,
-          earnings: u.earnings
-        }).eq('id', u.id);
-      }
 
       closeModal('modal-add-match');
       showToast(`✓ Partida "${escapeHTML(matchNum)}" registrada!`);
@@ -1437,9 +1367,7 @@
       }
 
       const lines = rawText.split('\n');
-      const matchesToInsert = [];
-      const playerUpdates = [];
-      let importedCount = 0;
+      const rpcEntries = [];
 
       for (let line of lines) {
         line = line.trim();
@@ -1449,53 +1377,40 @@
         const gameId = parts[0];
         const kills = parseInt(parts[1]) || 0;
         const pos = parseInt(parts[2]) || 1;
+        if (!gameId) continue;
 
-        const player = state.players.find(p => String(p.gameId) === String(gameId));
-
-        if (player) {
-          let bonusPos = 0;
-          if (pos === 1) bonusPos = top1Val;
-          else if (pos === 2) bonusPos = top2Val;
-
-          const totalEarned = (kills * killVal) + bonusPos;
-
-          matchesToInsert.push({
-            number: matchNum,
-            playerId: player.id,
-            playerGameId: player.gameId,
-            playerNick: player.nick,
-            date: formattedDate,
-            kills: kills,
-            pos: pos,
-            total: totalEarned
-          });
-
-          playerUpdates.push({
-            id: player.id,
-            kills: player.kills + kills,
-            matchesCount: player.matchesCount + 1,
-            earnings: parseFloat((player.earnings + totalEarned).toFixed(2))
-          });
-
-          importedCount++;
-        }
+        rpcEntries.push({ gameId, kills, pos });
       }
 
-      if (matchesToInsert.length > 0) {
-        const { error } = await _supabase.from('partidas').insert(matchesToInsert);
-        if (error) { showToast('Erro ao importar partidas.', 'danger'); return; }
+      if (rpcEntries.length === 0) {
+        showToast('Nenhuma linha válida encontrada.', 'danger');
+        return;
+      }
 
-        for (const u of playerUpdates) {
-          await _supabase.from('jogadores').update({
-            kills: u.kills,
-            matchesCount: u.matchesCount,
-            earnings: u.earnings
-          }).eq('id', u.id);
-        }
+      const { data, error } = await _supabase.rpc('bulk_import_matches', {
+        p_match_number: matchNum,
+        p_match_date: formattedDate,
+        p_kill_value: killVal,
+        p_top1_value: top1Val,
+        p_top2_value: top2Val,
+        p_entries: rpcEntries
+      });
 
+      if (error) {
+        showToast('Erro ao importar partidas.', 'danger');
+        return;
+      }
+
+      const result = data && data[0];
+      const importedCount = result ? result.imported_count : 0;
+      const notFound = result && result.not_found ? result.not_found : [];
+
+      if (importedCount > 0) {
         closeModal('modal-bulk-import');
         document.getElementById('bulk-data-input').value = '';
-        showToast(`✓ ${importedCount} resultados importados!`);
+        let msg = `✓ ${importedCount} resultados importados em uma única operação!`;
+        if (notFound.length > 0) msg += ` (${notFound.length} ID(s) não encontrado(s): ${notFound.join(', ')})`;
+        showToast(msg, 'success', 6000);
         await fetchFromDatabase();
       } else {
         showToast('Nenhum ID correspondente encontrado.', 'danger');
@@ -1507,26 +1422,15 @@
       if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
       if (!confirm('⚠️ Deseja realmente excluir esta partida? Os pontos e prêmios acumulados pelos jogadores nesta partida serão revertidos.')) return;
 
-      const matchesToDelete = state.matches.filter(m => (m.number + '_' + (m.date || 'sem_data')) === groupKey);
+      const sample = state.matches.find(m => (m.number + '_' + (m.date || 'sem_data')) === groupKey);
+      if (!sample) return;
 
-      for (const m of matchesToDelete) {
-        const player = state.players.find(p => String(p.id) === String(m.playerId) || String(p.gameId) === String(m.playerGameId));
-        if (player) {
-          const newKills = Math.max(0, player.kills - (m.kills || 0));
-          const newMatches = Math.max(0, player.matchesCount - 1);
-          const newEarnings = Math.max(0, parseFloat((player.earnings - (parseFloat(m.total) || 0)).toFixed(2)));
+      const { error } = await _supabase.rpc('delete_match_group', {
+        p_number: sample.number,
+        p_date: sample.date || null
+      });
 
-          await _supabase.from('jogadores').update({
-            kills: newKills,
-            matchesCount: newMatches,
-            earnings: newEarnings
-          }).eq('id', player.id);
-        }
-
-        if (m.id) {
-          await _supabase.from('partidas').delete().eq('id', m.id);
-        }
-      }
+      if (error) { showToast('Erro ao excluir a partida.', 'danger'); return; }
 
       showToast('Partida removida com sucesso!', 'danger');
       await fetchFromDatabase();
@@ -1912,7 +1816,7 @@
         profileContent.innerHTML = `
           <div class="empty-state">
             <i class="fa-solid fa-user-lock"></i>
-            <p>Faça login ou ative sua conta com o ID e o código enviados pelo ADM.</p>
+            <p>Faça login ou crie sua senha com o ID cadastrado pelo ADM.</p>
           </div>
         `;
       }
@@ -1941,9 +1845,7 @@
           const st = p.status || 'normal';
           const passCell = p.has_password
             ? '<span class="badge badge-paid">SENHA CRIADA</span>'
-            : (p.activation_code
-                ? `<div class="activation-box"><span class="activation-code-val">${escapeHTML(p.activation_code)}</span><button class="btn-icon" style="width:24px;height:24px;" onclick="copyActivationCode('${escapeHTML(p.activation_code)}', this)"><i class="fa-solid fa-copy" style="font-size:10px;"></i></button></div>`
-                : '<span class="badge badge-pending">PENDENTE</span>');
+            : '<span class="badge badge-pending">PENDENTE</span>';
           return `
             <tr>
               <td>

@@ -182,8 +182,12 @@ begin
 end;
 $$;
 
--- Registro: precisa do código de ativação (que o ADM repassa no privado)
-create or replace function player_register(p_game_id text, p_activation_code text, p_new_password text)
+-- Registro: qualquer um que souber o ID pode criar a senha (sem código de
+-- ativação). Fica mais simples de usar, mas quem souber o ID de outra
+-- pessoa (o ID é público no ranking) consegue criar senha pra conta dela
+-- antes do dono — se isso virar problema, reative o fluxo com activation_code.
+drop function if exists player_register(text, text, text);
+create or replace function player_register(p_game_id text, p_new_password text)
 returns table(id uuid, nick text, "gameId" text, error text)
 language plpgsql
 security definer
@@ -203,14 +207,8 @@ begin
     return;
   end if;
 
-  if v.activation_code is null or v.activation_code <> upper(p_activation_code) then
-    return query select null::uuid, null::text, null::text, 'Código de ativação inválido!'::text;
-    return;
-  end if;
-
   update jogadores
-  set password_hash = crypt(p_new_password, gen_salt('bf')),
-      activation_code = null
+  set password_hash = crypt(p_new_password, gen_salt('bf'))
   where jogadores.id = v.id;
 
   return query select v.id, v.nick, v."gameId", null::text;
@@ -241,8 +239,152 @@ end;
 $$;
 
 grant execute on function player_login(text, text) to anon, authenticated;
-grant execute on function player_register(text, text, text) to anon, authenticated;
+grant execute on function player_register(text, text) to anon, authenticated;
 grant execute on function mark_message_read(uuid, uuid) to anon, authenticated;
+
+-- =========================================================
+-- FUNÇÕES DE ESCRITA EM LOTE (usadas pelo painel ADM)
+-- Cada uma faz N jogadores em UMA chamada só, em vez do front
+-- disparar uma requisição por jogador.
+-- =========================================================
+
+-- Nova partida criada pelo modal "+ NOVA PARTIDA" (um ou mais jogadores,
+-- cada um podendo ter valor/kill e bônus diferentes)
+create or replace function add_match_with_players(
+  p_match_number text,
+  p_match_date text,
+  p_entries jsonb -- [{"playerId": "uuid", "kills": 5, "pos": 1, "killValue": 4.0, "bonus": 10.0}, ...]
+)
+returns int
+language plpgsql
+security definer
+as $$
+declare
+  v_entry jsonb;
+  v_total numeric;
+  v_count int := 0;
+begin
+  if not is_admin() then
+    raise exception 'Não autorizado';
+  end if;
+
+  for v_entry in select * from jsonb_array_elements(p_entries)
+  loop
+    v_total := ((v_entry->>'kills')::int * (v_entry->>'killValue')::numeric) + (v_entry->>'bonus')::numeric;
+
+    insert into partidas (number, "playerId", "playerGameId", "playerNick", date, kills, pos, total)
+    select p_match_number, j.id, j."gameId", j.nick, p_match_date,
+           (v_entry->>'kills')::int, (v_entry->>'pos')::int, v_total
+    from jogadores j where j.id = (v_entry->>'playerId')::uuid;
+
+    update jogadores
+    set kills = kills + (v_entry->>'kills')::int,
+        "matchesCount" = "matchesCount" + 1,
+        earnings = earnings + v_total
+    where id = (v_entry->>'playerId')::uuid;
+
+    v_count := v_count + 1;
+  end loop;
+
+  return v_count;
+end;
+$$;
+
+-- Importação em massa de resultados (colar lista ID, Kills, Posição).
+-- Um único valor de kill/top1/top2 vale pra lista inteira.
+create or replace function bulk_import_matches(
+  p_match_number text,
+  p_match_date text,
+  p_kill_value numeric,
+  p_top1_value numeric,
+  p_top2_value numeric,
+  p_entries jsonb -- [{"gameId": "12345678", "kills": 5, "pos": 1}, ...]
+)
+returns table(imported_count int, not_found jsonb)
+language plpgsql
+security definer
+as $$
+declare
+  v_entry jsonb;
+  v_player jogadores%rowtype;
+  v_bonus numeric;
+  v_total numeric;
+  v_imported int := 0;
+  v_not_found jsonb := '[]'::jsonb;
+begin
+  if not is_admin() then
+    raise exception 'Não autorizado';
+  end if;
+
+  for v_entry in select * from jsonb_array_elements(p_entries)
+  loop
+    select * into v_player from jogadores where "gameId" = (v_entry->>'gameId');
+
+    if not found then
+      v_not_found := v_not_found || jsonb_build_array(v_entry->>'gameId');
+      continue;
+    end if;
+
+    v_bonus := 0;
+    if (v_entry->>'pos')::int = 1 then v_bonus := p_top1_value;
+    elsif (v_entry->>'pos')::int = 2 then v_bonus := p_top2_value;
+    end if;
+
+    v_total := ((v_entry->>'kills')::int * p_kill_value) + v_bonus;
+
+    insert into partidas (number, "playerId", "playerGameId", "playerNick", date, kills, pos, total)
+    values (p_match_number, v_player.id, v_player."gameId", v_player.nick, p_match_date,
+            (v_entry->>'kills')::int, (v_entry->>'pos')::int, v_total);
+
+    update jogadores
+    set kills = kills + (v_entry->>'kills')::int,
+        "matchesCount" = "matchesCount" + 1,
+        earnings = earnings + v_total
+    where id = v_player.id;
+
+    v_imported := v_imported + 1;
+  end loop;
+
+  return query select v_imported, v_not_found;
+end;
+$$;
+
+-- Exclui uma partida inteira (todos os jogadores dela) e reverte os
+-- pontos/prêmios de cada um, em uma única chamada.
+create or replace function delete_match_group(p_number text, p_date text)
+returns int
+language plpgsql
+security definer
+as $$
+declare
+  v_row partidas%rowtype;
+  v_count int := 0;
+begin
+  if not is_admin() then
+    raise exception 'Não autorizado';
+  end if;
+
+  for v_row in
+    select * from partidas
+    where number = p_number and coalesce(date, 'sem_data') = coalesce(p_date, 'sem_data')
+  loop
+    update jogadores
+    set kills = greatest(0, kills - v_row.kills),
+        "matchesCount" = greatest(0, "matchesCount" - 1),
+        earnings = greatest(0, round((earnings - v_row.total)::numeric, 2))
+    where id = v_row."playerId";
+
+    delete from partidas where id = v_row.id;
+    v_count := v_count + 1;
+  end loop;
+
+  return v_count;
+end;
+$$;
+
+grant execute on function add_match_with_players(text, text, jsonb) to authenticated;
+grant execute on function bulk_import_matches(text, text, numeric, numeric, numeric, jsonb) to authenticated;
+grant execute on function delete_match_group(text, text) to authenticated;
 
 -- =========================================================
 -- COMO TERMINAR A CONFIGURAÇÃO (leia com calma):
