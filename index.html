@@ -3,7 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NØVA LEAGUE — Esportes Eletrônicos</title>
+  <title>NØVA LEAGUE</title>
+
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="shortcut icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b0e14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NØVA LEAGUE">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -70,8 +79,16 @@
       width: 36px; height: 36px;
       background: linear-gradient(135deg, var(--neon-gold), var(--neon-purple));
       border-radius: 10px; display: flex; align-items: center; justify-content: center;
-      font-family: var(--font-heading); font-weight: 900; color: #0b0e14; font-size: 18px;
       box-shadow: 0 0 12px rgba(229, 184, 57, 0.3);
+      position: relative; overflow: hidden;
+    }
+    .brand-logo img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .brand-logo-fallback {
+      display: none;
+      font-family: var(--font-heading); font-weight: 900; color: #0b0e14; font-size: 18px;
+      position: absolute; inset: 0; align-items: center; justify-content: center;
     }
     .brand-title {
       font-family: var(--font-heading); font-size: 16px; font-weight: 900; letter-spacing: 1.2px;
@@ -343,7 +360,10 @@
 
   <header>
     <div class="brand" onclick="handleSecretAdminTrigger()">
-      <div class="brand-logo">N</div>
+      <div class="brand-logo">
+        <img src="logo.png" alt="NØVA LEAGUE" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        <span class="brand-logo-fallback">N</span>
+      </div>
       <div class="brand-title">NØVA LEAGUE</div>
     </div>
     <span id="conn-status-badge" class="conn-status offline">CONECTANDO...</span>
@@ -605,9 +625,13 @@
           <label>ID DO FREE FIRE</label>
           <input type="number" id="player-reg-id" class="form-control" placeholder="Digite o ID cadastrado pelo ADM" required>
         </div>
+        <div class="alert-card warning1" style="margin-bottom: 12px;">
+          <i class="fa-solid fa-triangle-exclamation" style="font-size: 16px;"></i>
+          <div><strong>Importante:</strong> não use a mesma senha de contas reais, bancos, e-mail ou redes sociais. Crie uma senha exclusiva só pra esse site.</div>
+        </div>
         <div class="form-group">
           <label>CRIE UMA NOVA SENHA</label>
-          <input type="password" id="player-reg-pass" class="form-control" placeholder="Crie uma senha de acesso" required minlength="4">
+          <input type="password" id="player-reg-pass" class="form-control" placeholder="Crie uma senha de acesso (exclusiva, não reutilize)" required minlength="4">
         </div>
         <button type="submit" class="btn-primary">VERIFICAR & SALVAR</button>
       </form>
