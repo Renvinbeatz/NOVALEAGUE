@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>NØVA LEAGUE</title>
+  <title>NØVA LEAGUE — Esportes Eletrônicos</title>
 
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="shortcut icon" type="image/png" href="logo.png">
@@ -973,12 +973,6 @@
       `;
     }
 
-    // Usada pela medalha de POSIÇÃO no ranking/dashboard (#1/#2/#3 atual)
-    function getMedalSVG(position, size = 26) {
-      const map = { 1: 'ouro', 2: 'prata', 3: 'bronze' };
-      return getRoundMedalSVG(map[position], size);
-    }
-
     // Honra: formato de escudo, dourado + vermelho — reconhecimento manual
     function getHonraSVG(size = 20) {
       const gradId = nextSvgId('honraGrad');
@@ -1121,8 +1115,7 @@
         const subValue = currentRankingType === 'earnings'
           ? `${p.kills} kills`
           : `R$ ${parseFloat(p.earnings).toFixed(2)}`;
-        const medal = getMedalSVG(idx + 1);
-        const positionHTML = medal || `<span style="font-family: var(--font-heading); font-size: 15px; color: var(--neon-gold); width: 26px; text-align: center; flex-shrink: 0;">#${idx + 1}</span>`;
+        const positionHTML = `<span style="font-family: var(--font-heading); font-size: 15px; color: var(--neon-gold); width: 26px; text-align: center; flex-shrink: 0;">#${idx + 1}</span>`;
 
         return `
           <div class="card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 12px;">
@@ -2011,8 +2004,7 @@
         const sorted = [...state.players].sort((a, b) => b.kills - a.kills);
         const rankIndex = sorted.findIndex(item => String(item.id) === String(p.id));
         const rankPos = rankIndex !== -1 ? rankIndex + 1 : null;
-        const rankMedal = rankPos ? getMedalSVG(rankPos) : null;
-        document.getElementById('dash-rank').innerHTML = rankMedal || (rankPos ? `#${rankPos}` : '--');
+        document.getElementById('dash-rank').innerText = rankPos ? `#${rankPos}` : '--';
 
         const myGroups = getGroupedMatches(p.gameId);
         const homeMatchesList = document.getElementById('home-matches-list');
