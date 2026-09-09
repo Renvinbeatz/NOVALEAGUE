@@ -428,6 +428,10 @@
       <div class="section-header">
         <div class="section-title"><i class="fa-solid fa-trophy"></i> RANKING GERAL</div>
       </div>
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" id="tab-ranking-kills" onclick="switchRankingType('kills')"><i class="fa-solid fa-skull"></i> POR KILLS</button>
+        <button class="auth-tab-btn" id="tab-ranking-earnings" onclick="switchRankingType('earnings')"><i class="fa-solid fa-coins"></i> POR GANHOS</button>
+      </div>
       <div id="ranking-list-container"></div>
     </section>
 
@@ -860,6 +864,55 @@
     let filterDebounceTimer = null;
     let currentMatchPage = 1;
     const MATCHES_PER_PAGE = 10;
+    let currentRankingType = 'kills'; // 'kills' ou 'earnings'
+
+    function switchRankingType(type) {
+      currentRankingType = type;
+      document.getElementById('tab-ranking-kills').classList.toggle('active', type === 'kills');
+      document.getElementById('tab-ranking-earnings').classList.toggle('active', type === 'earnings');
+      renderRankingList();
+    }
+
+    function renderRankingList() {
+      const rankingContainer = document.getElementById('ranking-list-container');
+      if (state.players.length === 0) {
+        rankingContainer.innerHTML = `<div class="empty-state"><i class="fa-solid fa-trophy"></i><p>Nenhum participante no ranking.</p></div>`;
+        return;
+      }
+
+      const sortedPlayers = [...state.players].sort((a, b) =>
+        currentRankingType === 'earnings'
+          ? (parseFloat(b.earnings) - parseFloat(a.earnings))
+          : (b.kills - a.kills)
+      );
+
+      rankingContainer.innerHTML = sortedPlayers.map((p, idx) => {
+        const mainValue = currentRankingType === 'earnings'
+          ? `R$ ${parseFloat(p.earnings).toFixed(2)}`
+          : `${p.kills} Kills`;
+        const subValue = currentRankingType === 'earnings'
+          ? `${p.kills} kills`
+          : `R$ ${parseFloat(p.earnings).toFixed(2)}`;
+
+        return `
+          <div class="card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-family: var(--font-heading); font-size: 15px; color: var(--neon-gold);">#${idx + 1}</span>
+              <div>
+                <strong style="color: #fff; font-size: 13px;">${escapeHTML(p.nick)}</strong>
+                <div style="font-size: 10px; color: var(--text-muted);">ID: ${escapeHTML(p.gameId)} | Partidas: ${p.matchesCount}</div>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-family: var(--font-sub); font-weight: 700; color: var(--neon-gold); font-size: 16px;">
+                ${mainValue}
+              </div>
+              <div style="font-size: 10px; color: var(--text-muted);">${subValue}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
 
     function escapeHTML(str) {
       if (!str) return '';
@@ -1736,26 +1789,7 @@
       renderMatchesOnly();
 
       // RANKING
-      const rankingContainer = document.getElementById('ranking-list-container');
-      if (state.players.length === 0) {
-        rankingContainer.innerHTML = `<div class="empty-state"><i class="fa-solid fa-trophy"></i><p>Nenhum participante no ranking.</p></div>`;
-      } else {
-        const sortedPlayers = [...state.players].sort((a, b) => b.kills - a.kills);
-        rankingContainer.innerHTML = sortedPlayers.map((p, idx) => `
-          <div class="card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 12px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-family: var(--font-heading); font-size: 15px; color: var(--neon-gold);">#${idx + 1}</span>
-              <div>
-                <strong style="color: #fff; font-size: 13px;">${escapeHTML(p.nick)}</strong>
-                <div style="font-size: 10px; color: var(--text-muted);">ID: ${escapeHTML(p.gameId)} | Partidas: ${p.matchesCount}</div>
-              </div>
-            </div>
-            <div style="font-family: var(--font-sub); font-weight: 700; color: var(--neon-gold); font-size: 16px;">
-              ${p.kills} Kills
-            </div>
-          </div>
-        `).join('');
-      }
+      renderRankingList();
 
       // CUPONS PARA JOGADORES
       const couponsContainer = document.getElementById('coupons-list-container');
