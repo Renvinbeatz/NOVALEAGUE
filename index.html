@@ -18,7 +18,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
     :root {
@@ -121,8 +120,7 @@
     }
 
     .stat-card {
-      background: linear-gradient(145deg, rgba(20, 26, 36, 0.85), rgba(28, 36, 50, 0.55));
-      backdrop-filter: blur(10px);
+      background: linear-gradient(145deg, rgba(24, 31, 43, 0.95), rgba(32, 41, 58, 0.85));
       border: 1px solid rgba(248, 215, 117, 0.18); border-radius: var(--radius-md); padding: 12px;
       display: flex; flex-direction: column; justify-content: space-between; position: relative;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 16px rgba(0,0,0,0.25);
@@ -267,7 +265,7 @@
     .bottom-nav {
       position: fixed; bottom: 0; left: 0; right: 0; height: 60px;
       background: rgba(11, 14, 20, 0.98); border-top: 1px solid var(--border-color);
-      display: flex; justify-content: space-around; align-items: center; backdrop-filter: blur(15px); z-index: 1000;
+      display: flex; justify-content: space-around; align-items: center; backdrop-filter: blur(8px); z-index: 1000;
     }
     .nav-item {
       display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--text-muted);
@@ -901,6 +899,7 @@
     </div>
   </nav>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     // =========================================================
     // 1) PREENCHA COM OS DADOS DO SEU PROJETO SUPABASE
@@ -1091,8 +1090,10 @@
       if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
       const { error } = await _supabase.from('jogadores').update({ [field]: newValue }).eq('id', playerId);
       if (error) { showToast('Erro ao atualizar medalha.', 'danger'); return; }
+      const player = state.players.find(p => String(p.id) === String(playerId));
+      if (player) player[field] = newValue;
       showToast(newValue ? 'Medalha concedida!' : 'Medalha removida.');
-      await fetchFromDatabase();
+      renderAll();
     }
 
     function renderRankingList() {
@@ -1123,7 +1124,7 @@
               ${positionHTML}
               <div>
                 <strong style="color: #fff; font-size: 13px;">${escapeHTML(p.nick)}</strong>${renderAchievementMedals(p)}
-                <div style="font-size: 10px; color: var(--text-muted);">ID: ${escapeHTML(p.gameId)} | Partidas: ${p.matchesCount}</div>
+                <div style="font-size: 10px; color: var(--text-muted);">ID: ${escapeHTML(maskGameId(p.gameId))} | Partidas: ${p.matchesCount}</div>
               </div>
             </div>
             <div style="text-align: right;">
@@ -1546,9 +1547,39 @@
       const player = state.players.find(p => String(p.id) === String(playerId));
       if (player) {
         await _supabase.from('jogadores').update({ status: newStatus }).eq('id', playerId);
+        player.status = newStatus;
         showToast(`Status de ${escapeHTML(player.nick)} atualizado!`);
-        await fetchFromDatabase();
+        renderAll();
       }
+    }
+
+    // Remove a senha e encerra a sessão ativa do jogador, SEM apagar
+    // nenhuma informação dele (kills, ganhos, status, medalhas continuam).
+    // Serve tanto pra deixar o jogador recriar a senha quanto pra expulsar
+    // um acesso indevido (a sessão salva no navegador de quem estiver logado
+    // para de funcionar, porque o token também é limpo).
+    async function resetPlayerAccess(playerId) {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
+
+      const player = state.players.find(p => String(p.id) === String(playerId));
+      const nick = player ? player.nick : 'jogador';
+
+      const confirmReset = confirm(`Remover a senha e encerrar a sessão de ${nick}?\n\nO jogador vai precisar criar uma nova senha pra entrar de novo. Kills, ganhos, status e medalhas NÃO são apagados — só o acesso é resetado.`);
+      if (!confirmReset) return;
+
+      const { error } = await _supabase.from('jogadores').update({
+        password_hash: null,
+        session_token: null,
+        session_expires_at: null,
+        failed_attempts: 0,
+        locked_until: null
+      }).eq('id', playerId);
+
+      if (error) { showToast('Erro ao resetar o acesso do jogador.', 'danger'); return; }
+
+      if (player) player.has_password = false;
+      showToast(`🔓 Acesso de ${escapeHTML(nick)} resetado — ele(a) precisa criar uma nova senha.`);
+      renderAll();
     }
 
     function openAddMatchModal() {
@@ -1878,13 +1909,29 @@
       return Object.values(groups);
     }
 
-    function renderMatchGroupHTML(group, groupIndex, isAdmin = false) {
+    // Mostra só os 4 primeiros dígitos do ID, resto vira asterisco.
+    // maskMode 'smart': mascara, exceto se for o próprio jogador logado
+    // ou se o filtro digitado bater EXATAMENTE com o ID (prova que a pessoa já sabe o ID).
+    function maskGameId(gameId) {
+      const str = String(gameId || '');
+      if (str.length <= 4) return str;
+      return str.slice(0, 4) + '*'.repeat(str.length - 4);
+    }
+
+    function renderMatchGroupHTML(group, groupIndex, isAdmin = false, maskMode = 'none', exactFilterValue = null) {
       const sortedPlayers = [...group.players].sort((a, b) => a.pos - b.pos);
 
       let myIndex = -1;
       if (state.currentPlayer) {
         myIndex = sortedPlayers.findIndex(p => String(p.playerGameId) === String(state.currentPlayer.gameId));
       }
+
+      const displayId = (gameId) => {
+        if (maskMode !== 'smart') return escapeHTML(gameId);
+        const isOwn = state.currentPlayer && String(gameId) === String(state.currentPlayer.gameId);
+        const matchesFilter = exactFilterValue && String(gameId) === String(exactFilterValue).trim();
+        return (isOwn || matchesFilter) ? escapeHTML(gameId) : escapeHTML(maskGameId(gameId));
+      };
 
       let meHighlightedHTML = '';
       if (myIndex !== -1) {
@@ -1894,7 +1941,7 @@
             <div style="font-size: 11px; color: var(--neon-gold); font-weight: 700; margin-bottom: 4px;">Sua Posição nesta Partida:</div>
             <div class="player-row-item highlight-me">
               <div>
-                <span class="player-row-title">#${myRecord.pos} ${escapeHTML(myRecord.playerNick)} // ${escapeHTML(myRecord.playerGameId)}</span>
+                <span class="player-row-title">#${myRecord.pos} ${escapeHTML(myRecord.playerNick)} // ${displayId(myRecord.playerGameId)}</span>
               </div>
               <div style="text-align: right;">
                 <strong style="color: var(--neon-gold);">${myRecord.kills} Kills</strong>
@@ -1910,7 +1957,7 @@
         return `
           <div class="player-row-item ${isMe ? 'highlight-me' : ''}">
             <div>
-              <span class="player-row-title">#${p.pos} ${escapeHTML(p.playerNick)} // ${escapeHTML(p.playerGameId)}</span>
+              <span class="player-row-title">#${p.pos} ${escapeHTML(p.playerNick)} // ${displayId(p.playerGameId)}</span>
             </div>
             <div style="text-align: right;">
               <strong style="color: var(--neon-gold);">${p.kills} Kills</strong>
@@ -1968,7 +2015,7 @@
       if (paginatedGroups.length === 0) {
         fullMatchesList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i><p>${filterId ? 'Nenhum resultado para o ID ' + escapeHTML(filterId) : 'Nenhuma partida registrada.'}</p></div>`;
       } else {
-        fullMatchesList.innerHTML = paginatedGroups.map((g, idx) => renderMatchGroupHTML(g, 'full-' + idx)).join('');
+        fullMatchesList.innerHTML = paginatedGroups.map((g, idx) => renderMatchGroupHTML(g, 'full-' + idx, false, 'smart', filterId)).join('');
       }
 
       document.getElementById('page-indicator').innerText = `Página ${currentMatchPage} de ${totalPages}`;
@@ -2136,9 +2183,10 @@
       }
 
       // PAINEL ADM - MÉTRICAS
+      const allMatchGroups = getGroupedMatches();
       const totalEarnings = state.players.reduce((acc, p) => acc + parseFloat(p.earnings || 0), 0);
       document.getElementById('admin-count-players').innerText = state.players.length;
-      document.getElementById('admin-count-matches').innerText = getGroupedMatches().length;
+      document.getElementById('admin-count-matches').innerText = allMatchGroups.length;
       document.getElementById('admin-total-payout').innerText = `R$ ${totalEarnings.toFixed(2)}`;
       document.getElementById('admin-count-coupons').innerText = state.coupons.length;
 
@@ -2150,7 +2198,10 @@
         playersTable.innerHTML = state.players.map(p => {
           const st = p.status || 'normal';
           const passCell = p.has_password
-            ? '<span class="badge badge-paid">SENHA CRIADA</span>'
+            ? `<span class="badge badge-paid">SENHA CRIADA</span>
+               <button class="btn-icon" style="width: 24px; height: 24px; margin-left: 4px; color: var(--neon-red);" title="Deslogar / resetar acesso" onclick="resetPlayerAccess('${p.id}')">
+                 <i class="fa-solid fa-right-from-bracket" style="font-size: 11px;"></i>
+               </button>`
             : '<span class="badge badge-pending">PENDENTE</span>';
           const autoTier = getProgressionTier(p.kills, p.earnings);
           const tierIcon = autoTier ? getAchievementMedalSVG(autoTier, 20) : '<span style="font-size:10px; color: var(--text-muted);">—</span>';
@@ -2240,11 +2291,10 @@
 
       // PARTIDAS ADM (COM BOTÃO DE EXCLUIR)
       const adminMatchesList = document.getElementById('admin-matches-list');
-      const allGroups = getGroupedMatches();
       if (state.matches.length === 0) {
         adminMatchesList.innerHTML = `<div class="empty-state"><i class="fa-solid fa-gamepad"></i><p>Nenhuma partida criada.</p></div>`;
       } else {
-        adminMatchesList.innerHTML = allGroups.map((g, idx) => renderMatchGroupHTML(g, 'admin-' + idx, true)).join('');
+        adminMatchesList.innerHTML = allMatchGroups.map((g, idx) => renderMatchGroupHTML(g, 'admin-' + idx, true)).join('');
       }
     }
 
