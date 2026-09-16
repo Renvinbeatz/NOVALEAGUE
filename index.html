@@ -569,6 +569,10 @@
             <button class="btn-copy" onclick="openModal('modal-add-player')">+ ADICIONAR ID</button>
           </div>
         </div>
+        <div class="filter-box">
+          <input type="text" id="admin-player-search" class="form-control" placeholder="Buscar por nick ou ID...">
+        </div>
+        <p style="font-size: 10px; color: var(--text-muted); margin: -6px 0 10px 2px;">Ordenado por quem mais jogou primeiro.</p>
         <div class="table-responsive">
           <table class="responsive-table">
             <thead>
@@ -577,6 +581,7 @@
                 <th>Senha</th>
                 <th>Status da Conta</th>
                 <th>Medalhas</th>
+                <th>Partidas</th>
                 <th>Acumulado</th>
               </tr>
             </thead>
@@ -805,6 +810,30 @@
         <div id="match-players-container"></div>
 
         <button type="submit" class="btn-primary" style="margin-top: 8px;">SALVAR PARTIDA</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-edit-match">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--neon-gold); font-size: 14px;"><i class="fa-solid fa-pen"></i> EDITAR PARTIDA</h3>
+        <button class="btn-icon" onclick="closeModal('modal-edit-match')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="event.preventDefault(); handleEditMatch();">
+        <div class="form-group">
+          <label>NÚMERO DA DIÁRIA / PARTIDA</label>
+          <input type="text" id="edit-match-number" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label style="color: var(--neon-gold);"><i class="fa-regular fa-calendar-days"></i> DATA E HORA</label>
+          <input type="text" id="edit-match-date" class="form-control" required>
+        </div>
+
+        <label style="font-size: 11px; font-weight: 700; color: var(--neon-gold); display: block; margin-bottom: 8px;">JOGADORES DESSA PARTIDA</label>
+        <div id="edit-match-players-container"></div>
+
+        <button type="submit" class="btn-primary" style="margin-top: 8px;">SALVAR ALTERAÇÕES</button>
       </form>
     </div>
   </div>
@@ -1098,12 +1127,19 @@
 
     function renderRankingList() {
       const rankingContainer = document.getElementById('ranking-list-container');
-      if (state.players.length === 0) {
-        rankingContainer.innerHTML = `<div class="empty-state"><i class="fa-solid fa-trophy"></i><p>Nenhum participante no ranking.</p></div>`;
+
+      // Só entra no ranking quem já tem valor > 0 na métrica da aba ativa
+      // (kills ou ganhos) — filtra jogador cadastrado que ainda não jogou nada.
+      const eligiblePlayers = state.players.filter(p =>
+        currentRankingType === 'earnings' ? parseFloat(p.earnings) > 0 : p.kills > 0
+      );
+
+      if (eligiblePlayers.length === 0) {
+        rankingContainer.innerHTML = `<div class="empty-state"><i class="fa-solid fa-trophy"></i><p>Nenhum participante no ranking ainda.</p></div>`;
         return;
       }
 
-      const sortedPlayers = [...state.players].sort((a, b) =>
+      const sortedPlayers = [...eligiblePlayers].sort((a, b) =>
         currentRankingType === 'earnings'
           ? (parseFloat(b.earnings) - parseFloat(a.earnings))
           : (b.kills - a.kills)
@@ -1773,6 +1809,81 @@
     }
 
     // REMOVER PARTIDA PELO ADM
+    // Abre o modal de edição já preenchido com os dados atuais da partida
+    function openEditMatchModal(groupKey) {
+      const groupMatches = state.matches.filter(m => (m.number + '_' + (m.date || 'sem_data')) === groupKey);
+      if (groupMatches.length === 0) {
+        showToast('Partida não encontrada.', 'danger');
+        return;
+      }
+
+      document.getElementById('edit-match-number').value = groupMatches[0].number;
+      document.getElementById('edit-match-date').value = groupMatches[0].date || '';
+
+      const container = document.getElementById('edit-match-players-container');
+      container.innerHTML = groupMatches.map(m => `
+        <div class="player-entry-card" data-match-id="${m.id}">
+          <div style="font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 8px;">
+            ${escapeHTML(m.playerNick)} <span style="color: var(--text-muted); font-weight: 400;">// ${escapeHTML(m.playerGameId)}</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>KILLS</label>
+              <input type="number" class="form-control edit-p-kills" value="${m.kills}" min="0" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>POSIÇÃO</label>
+              <input type="number" class="form-control edit-p-pos" value="${m.pos}" min="1" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>TOTAL R$</label>
+              <input type="number" class="form-control edit-p-total" value="${parseFloat(m.total).toFixed(2)}" step="0.5" required>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      openModal('modal-edit-match');
+    }
+
+    // Salva as alterações: reverte o valor antigo de cada jogador e aplica
+    // o novo, tudo numa função só no banco (evita ficar inconsistente
+    // se a conexão cair no meio de várias chamadas separadas).
+    async function handleEditMatch() {
+      if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
+
+      const newNumber = document.getElementById('edit-match-number').value.trim();
+      const newDate = document.getElementById('edit-match-date').value.trim();
+      const rows = document.querySelectorAll('#edit-match-players-container .player-entry-card');
+
+      if (rows.length === 0) {
+        showToast('Nada pra salvar.', 'danger');
+        return;
+      }
+
+      const entries = Array.from(rows).map(row => ({
+        matchId: row.dataset.matchId,
+        kills: parseInt(row.querySelector('.edit-p-kills').value) || 0,
+        pos: parseInt(row.querySelector('.edit-p-pos').value) || 1,
+        total: parseFloat(row.querySelector('.edit-p-total').value) || 0
+      }));
+
+      const { error } = await _supabase.rpc('edit_match_group', {
+        p_new_number: newNumber,
+        p_new_date: newDate,
+        p_entries: entries
+      });
+
+      if (error) {
+        showToast('Erro ao salvar as alterações.', 'danger');
+        return;
+      }
+
+      closeModal('modal-edit-match');
+      showToast('✓ Partida atualizada!');
+      await fetchFromDatabase();
+    }
+
     async function deleteMatchGroup(groupKey) {
       if (!_supabase) { showToast('Banco de dados não configurado ainda.', 'danger'); return; }
       if (!confirm('⚠️ Deseja realmente excluir esta partida? Os pontos e prêmios acumulados pelos jogadores nesta partida serão revertidos.')) return;
@@ -1969,6 +2080,9 @@
 
       const accordionId = 'match-details-' + groupIndex;
       const deleteBtn = isAdmin ? `
+        <button class="btn-copy" style="background: rgba(46,204,113,0.2); color: var(--neon-green); padding: 4px 8px; font-size: 10px;" onclick="event.stopPropagation(); openEditMatchModal('${escapeHTML(group.key)}')">
+          <i class="fa-solid fa-pen"></i> EDITAR
+        </button>
         <button class="btn-copy" style="background: rgba(231,76,60,0.2); color: var(--neon-red); padding: 4px 8px; font-size: 10px;" onclick="event.stopPropagation(); deleteMatchGroup('${escapeHTML(group.key)}')">
           <i class="fa-solid fa-trash"></i> EXCLUIR
         </button>
@@ -2026,6 +2140,69 @@
     function changeMatchPage(direction) {
       currentMatchPage += direction;
       renderMatchesOnly();
+    }
+
+    // Tabela de jogadores do ADM: busca por nick/ID + ordenada por quem mais
+    // jogou primeiro. Função própria pra não precisar rodar o renderAll()
+    // inteiro a cada tecla digitada na busca.
+    function renderAdminPlayersTable() {
+      const playersTable = document.getElementById('admin-players-table-body');
+      if (!playersTable) return;
+
+      const playerSearchTerm = (document.getElementById('admin-player-search')?.value || '').trim().toLowerCase();
+
+      const visiblePlayers = state.players
+        .filter(p => !playerSearchTerm || p.nick.toLowerCase().includes(playerSearchTerm) || String(p.gameId).includes(playerSearchTerm))
+        .sort((a, b) => (b.matchesCount || 0) - (a.matchesCount || 0));
+
+      if (state.players.length === 0) {
+        playersTable.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Nenhum ID liberado no banco.</td></tr>`;
+        return;
+      }
+      if (visiblePlayers.length === 0) {
+        playersTable.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Nenhum jogador encontrado para "${escapeHTML(playerSearchTerm)}".</td></tr>`;
+        return;
+      }
+
+      playersTable.innerHTML = visiblePlayers.map(p => {
+        const st = p.status || 'normal';
+        const passCell = p.has_password
+          ? `<span class="badge badge-paid">SENHA CRIADA</span>
+             <button class="btn-icon" style="width: 24px; height: 24px; margin-left: 4px; color: var(--neon-red);" title="Deslogar / resetar acesso" onclick="resetPlayerAccess('${p.id}')">
+               <i class="fa-solid fa-right-from-bracket" style="font-size: 11px;"></i>
+             </button>`
+          : '<span class="badge badge-pending">PENDENTE</span>';
+        const autoTier = getProgressionTier(p.kills, p.earnings);
+        const tierIcon = autoTier ? getAchievementMedalSVG(autoTier, 20) : '<span style="font-size:10px; color: var(--text-muted);">—</span>';
+        const honraOn = !!p.is_honra;
+        const verifOn = !!p.is_verificado;
+        return `
+          <tr>
+            <td>
+              <strong>${escapeHTML(p.nick)}</strong>
+              <div style="font-size: 10px; color: var(--text-muted);">ID: ${escapeHTML(p.gameId)}</div>
+            </td>
+            <td>${passCell}</td>
+            <td>
+              <select class="status-select" onchange="updatePlayerStatus('${p.id}', this.value)">
+                <option value="normal" ${st === 'normal' ? 'selected' : ''}>🟢 Normal</option>
+                <option value="warning1" ${st === 'warning1' ? 'selected' : ''}>🟡 1º Aviso</option>
+                <option value="warning2" ${st === 'warning2' ? 'selected' : ''}>🟠 2º Aviso</option>
+                <option value="banned">🔴 Ban (Excluir)</option>
+              </select>
+            </td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span title="Tier automático (kills/ganhos)">${tierIcon}</span>
+                <button class="btn-icon" style="width: 24px; height: 24px; opacity: ${honraOn ? '1' : '0.35'};" title="Honra (manual)" onclick="toggleMedalFlag('${p.id}', 'is_honra', ${!honraOn})">${getHonraSVG(16)}</button>
+                <button class="btn-icon" style="width: 24px; height: 24px; opacity: ${verifOn ? '1' : '0.35'};" title="Verificado (manual)" onclick="toggleMedalFlag('${p.id}', 'is_verificado', ${!verifOn})">${getVerificadoSVG(16)}</button>
+              </div>
+            </td>
+            <td style="text-align: center; font-weight: 700; color: #fff;">${p.matchesCount || 0}</td>
+            <td><span style="color: var(--neon-green); font-weight: 700;">R$ ${parseFloat(p.earnings).toFixed(2)}</span></td>
+          </tr>
+        `;
+      }).join('');
     }
 
     function renderAll() {
@@ -2190,50 +2367,7 @@
       document.getElementById('admin-total-payout').innerText = `R$ ${totalEarnings.toFixed(2)}`;
       document.getElementById('admin-count-coupons').innerText = state.coupons.length;
 
-      // TABELA DE JOGADORES NO ADM
-      const playersTable = document.getElementById('admin-players-table-body');
-      if (state.players.length === 0) {
-        playersTable.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Nenhum ID liberado no banco.</td></tr>`;
-      } else {
-        playersTable.innerHTML = state.players.map(p => {
-          const st = p.status || 'normal';
-          const passCell = p.has_password
-            ? `<span class="badge badge-paid">SENHA CRIADA</span>
-               <button class="btn-icon" style="width: 24px; height: 24px; margin-left: 4px; color: var(--neon-red);" title="Deslogar / resetar acesso" onclick="resetPlayerAccess('${p.id}')">
-                 <i class="fa-solid fa-right-from-bracket" style="font-size: 11px;"></i>
-               </button>`
-            : '<span class="badge badge-pending">PENDENTE</span>';
-          const autoTier = getProgressionTier(p.kills, p.earnings);
-          const tierIcon = autoTier ? getAchievementMedalSVG(autoTier, 20) : '<span style="font-size:10px; color: var(--text-muted);">—</span>';
-          const honraOn = !!p.is_honra;
-          const verifOn = !!p.is_verificado;
-          return `
-            <tr>
-              <td>
-                <strong>${escapeHTML(p.nick)}</strong>
-                <div style="font-size: 10px; color: var(--text-muted);">ID: ${escapeHTML(p.gameId)}</div>
-              </td>
-              <td>${passCell}</td>
-              <td>
-                <select class="status-select" onchange="updatePlayerStatus('${p.id}', this.value)">
-                  <option value="normal" ${st === 'normal' ? 'selected' : ''}>🟢 Normal</option>
-                  <option value="warning1" ${st === 'warning1' ? 'selected' : ''}>🟡 1º Aviso</option>
-                  <option value="warning2" ${st === 'warning2' ? 'selected' : ''}>🟠 2º Aviso</option>
-                  <option value="banned">🔴 Ban (Excluir)</option>
-                </select>
-              </td>
-              <td>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span title="Tier automático (kills/ganhos)">${tierIcon}</span>
-                  <button class="btn-icon" style="width: 24px; height: 24px; opacity: ${honraOn ? '1' : '0.35'};" title="Honra (manual)" onclick="toggleMedalFlag('${p.id}', 'is_honra', ${!honraOn})">${getHonraSVG(16)}</button>
-                  <button class="btn-icon" style="width: 24px; height: 24px; opacity: ${verifOn ? '1' : '0.35'};" title="Verificado (manual)" onclick="toggleMedalFlag('${p.id}', 'is_verificado', ${!verifOn})">${getVerificadoSVG(16)}</button>
-                </div>
-              </td>
-              <td><span style="color: var(--neon-green); font-weight: 700;">R$ ${parseFloat(p.earnings).toFixed(2)}</span></td>
-            </tr>
-          `;
-        }).join('');
-      }
+      renderAdminPlayersTable();
 
       // CUPONS NO ADM
       const adminCouponsContainer = document.getElementById('admin-coupons-table-body');
@@ -2346,6 +2480,15 @@
             currentMatchPage = 1;
             renderMatchesOnly();
           }, 300);
+        });
+      }
+
+      const playerSearchInput = document.getElementById('admin-player-search');
+      if (playerSearchInput) {
+        let playerSearchDebounceTimer = null;
+        playerSearchInput.addEventListener('input', () => {
+          clearTimeout(playerSearchDebounceTimer);
+          playerSearchDebounceTimer = setTimeout(renderAdminPlayersTable, 300);
         });
       }
     });
